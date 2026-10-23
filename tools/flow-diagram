@@ -1,0 +1,201 @@
+#!/usr/bin/env python3
+"""flow-diagram – create and update Flow diagrams from the command line.
+
+Reads URL and login from ~/.config/flow/credentials (must be mode 600):
+
+    FLOW_URL=https://craft.cadamu.ro/flow/
+    FLOW_USER=claude
+    FLOW_PASSWORD=...
+
+The password never appears on the command line or in the output. Values are stripped of
+surrounding whitespace; quotes are not removed.
+
+Usage:
+    flow-diagram list
+    flow-diagram get ID                      # prints the code; version + last editor go to stderr
+    flow-diagram create NAME [FILE|-] [--theme T] [--look L]
+    flow-diagram update ID [FILE|-] --version N [--name N] [--theme T] [--look L]
+    flow-diagram share ID USERNAME view|edit
+    flow-diagram unshare ID USERNAME
+    flow-diagram public ID                   # create (or show) the public read-only link
+    flow-diagram unpublic ID
+    flow-diagram delete ID
+
+FILE defaults to "-" (stdin). Output is the diagram's editor URL (or JSON for list).
+update needs the version printed by get, so changes saved by others in between are not overwritten.
+--version may only be left out if this account saved the diagram last.
+If login fails: check the credentials file – do not retry in a loop, failed logins lock the IP for 15 minutes.
+"""
+
+import argparse
+import http.cookiejar
+import json
+import os
+import stat
+import sys
+import urllib.error
+import urllib.request
+from pathlib import Path
+
+CREDENTIALS = Path(os.environ.get("FLOW_CREDENTIALS", Path.home() / ".config" / "flow" / "credentials"))
+
+
+def fail(message):
+    print(f"flow-diagram: {message}", file=sys.stderr)
+    sys.exit(1)
+
+
+def read_credentials():
+    if not CREDENTIALS.exists():
+        fail(f"{CREDENTIALS} not found")
+    if stat.S_IMODE(CREDENTIALS.stat().st_mode) & 0o077:
+        fail(f"{CREDENTIALS} is readable by others – run: chmod 600 {CREDENTIALS}")
+    values = {}
+    for line in CREDENTIALS.read_text(encoding="utf-8").splitlines():
+        if "=" in line and not line.lstrip().startswith("#"):
+            key, value = line.split("=", 1)
+            values[key.strip()] = value.strip()
+    missing = [k for k in ("FLOW_URL", "FLOW_USER", "FLOW_PASSWORD") if not values.get(k)]
+    if missing:
+        fail(f"missing in {CREDENTIALS}: {', '.join(missing)}")
+    if not values["FLOW_URL"].startswith("https://"):
+        fail("FLOW_URL must use https")
+    values["FLOW_URL"] = values["FLOW_URL"].rstrip("/") + "/"
+    return values
+
+
+class HttpsOnlyRedirects(urllib.request.HTTPRedirectHandler):
+    """Refuse redirects that leave https."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        if not newurl.startswith("https://"):
+            fail(f"refusing redirect to non-https URL: {newurl}")
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+class Client:
+    """Minimal session client for the Flow JSON API."""
+
+    def __init__(self, creds):
+        self.base = creds["FLOW_URL"]
+        self.user = creds["FLOW_USER"]
+        self.opener = urllib.request.build_opener(
+            HttpsOnlyRedirects(), urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar())
+        )
+        self.call("api/login", "POST", {"username": self.user, "password": creds["FLOW_PASSWORD"]})
+
+    def call(self, path, method="GET", body=None):
+        data = None if body is None else json.dumps(body).encode()
+        req = urllib.request.Request(self.base + path, data=data, method=method)
+        if data is not None:
+            req.add_header("Content-Type", "application/json")
+        try:
+            with self.opener.open(req, timeout=30) as resp:
+                raw = resp.read()
+                return json.loads(raw) if raw else None
+        except urllib.error.HTTPError as err:
+            try:
+                detail = json.loads(err.read()).get("error", "")
+            except (ValueError, AttributeError):
+                detail = ""
+            if path == "api/login" and err.code == 401:
+                fail("login failed – check the credentials file. Do not retry: failed logins lock this IP for 15 min.")
+            if err.code == 409:
+                fail("conflict: someone saved this diagram in the meantime – run get, merge, then update again")
+            fail(f"HTTP {err.code} on {method} {path}: {detail}")
+        except urllib.error.URLError as err:
+            fail(f"cannot reach {self.base}: {err.reason}")
+
+    def user_id(self, username):
+        for user in self.call("api/users"):
+            if user["username"].lower() == username.lower():
+                return user["id"]
+        fail(f"unknown user: {username}")
+
+    def editor_url(self, diagram_id):
+        return f"{self.base}?id={diagram_id}"
+
+
+def read_code(source):
+    if source in (None, "-"):
+        return sys.stdin.read()
+    return Path(source).read_text(encoding="utf-8")
+
+
+def main():
+    parser = argparse.ArgumentParser(prog="flow-diagram", description="Create and update Flow diagrams.")
+    sub = parser.add_subparsers(dest="cmd", required=True)
+    sub.add_parser("list")
+    p = sub.add_parser("get")
+    p.add_argument("id", type=int)
+    p = sub.add_parser("create")
+    p.add_argument("name")
+    p.add_argument("file", nargs="?", default="-")
+    p.add_argument("--theme", default="default")
+    p.add_argument("--look", default="classic")
+    p = sub.add_parser("update")
+    p.add_argument("id", type=int)
+    p.add_argument("file", nargs="?", default="-")
+    p.add_argument("--version", type=int, help="version from 'get' – protects changes saved by others")
+    p.add_argument("--name")
+    p.add_argument("--theme")
+    p.add_argument("--look")
+    p = sub.add_parser("share")
+    p.add_argument("id", type=int)
+    p.add_argument("user")
+    p.add_argument("role", choices=["view", "edit"])
+    p = sub.add_parser("unshare")
+    p.add_argument("id", type=int)
+    p.add_argument("user")
+    for name in ("public", "unpublic", "delete"):
+        sub.add_parser(name).add_argument("id", type=int)
+    args = parser.parse_args()
+
+    client = Client(read_credentials())
+    api = "api/diagrams"
+
+    if args.cmd == "list":
+        print(json.dumps(client.call(api), ensure_ascii=False, indent=2))
+    elif args.cmd == "get":
+        d = client.call(f"{api}/{args.id}")
+        print(f"version {d['version']} · last saved by {d['updated_by']} · role {d['role']}", file=sys.stderr)
+        print(d["code"])
+    elif args.cmd == "create":
+        body = {"name": args.name, "code": read_code(args.file), "theme": args.theme, "look": args.look}
+        print(client.editor_url(client.call(api, "POST", body)["id"]))
+    elif args.cmd == "update":
+        current = client.call(f"{api}/{args.id}")
+        if args.version is None:
+            if (current["updated_by"] or "").lower() != client.user.lower():
+                fail(f"#{args.id} was last saved by {current['updated_by']} – run get, merge, then update --version N")
+            args.version = current["version"]
+        elif args.version != current["version"]:
+            fail(f"conflict: #{args.id} is at version {current['version']} now – run get again and merge")
+        body = {
+            "name": args.name or current["name"],
+            "code": read_code(args.file),
+            "theme": args.theme or current["theme"],
+            "look": args.look or current["look"],
+            "version": args.version,
+        }
+        client.call(f"{api}/{args.id}", "PUT", body)
+        print(client.editor_url(args.id))
+    elif args.cmd == "share":
+        client.call(f"{api}/{args.id}/access/{client.user_id(args.user)}", "PUT", {"role": args.role})
+        print(f"shared #{args.id} with {args.user} ({args.role})")
+    elif args.cmd == "unshare":
+        client.call(f"{api}/{args.id}/access/{client.user_id(args.user)}", "DELETE")
+        print(f"removed {args.user} from #{args.id}")
+    elif args.cmd == "public":
+        token = client.call(f"{api}/{args.id}/public", "POST", {})["public_token"]
+        print(f"{client.base}v/{token}")
+    elif args.cmd == "unpublic":
+        client.call(f"{api}/{args.id}/public", "DELETE")
+        print(f"public link of #{args.id} disabled")
+    elif args.cmd == "delete":
+        client.call(f"{api}/{args.id}", "DELETE")
+        print(f"deleted #{args.id}")
+
+
+if __name__ == "__main__":
+    main()

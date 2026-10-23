@@ -9,3 +9,5 @@ instance/
 .venv/
 __pycache__/
 .pytest_cache/
+credentials
+*.credentials
