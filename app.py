@@ -37,7 +37,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
-HTML_PAGES = {"index.html", "login.html", "admin.html", "view.html"}
+HTML_PAGES = {"home.html", "index.html", "login.html", "admin.html", "view.html"}
 
 MAX_CODE_CHARS = 50_000  # mermaid's default maxTextSize – longer code would not render anyway
 MAX_NAME_CHARS = 200
@@ -314,7 +314,17 @@ def create_app(config=None):
     # ---------- pages ----------
 
     @app.get("/")
-    def index():
+    def home():
+        """Start page: the latest diagrams. Old editor links (?id=…) move on to the editor."""
+        old_id = request.args.get("id", "")
+        if old_id.isascii() and old_id.isdigit():
+            return redirect(base + "edit?id=" + old_id)
+        if current_user() is None:
+            return redirect(base + "login")
+        return page("home.html")
+
+    @app.get("/edit")
+    def editor():
         if current_user() is None:
             return redirect(base + "login")
         return page("index.html")
