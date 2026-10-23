@@ -73,12 +73,32 @@ def test_pages_and_api_need_login(app):
     assert client.get("/login").status_code == 200
 
 
-def test_wrong_password_and_lockout(app):
+def test_login_failure_does_not_reveal_users(app):
+    client = app.test_client()
+    known = client.post("/api/login", json={"username": "ben", "password": "x" * 12})
+    unknown = client.post("/api/login", json={"username": "niemand", "password": "x" * 12})
+    assert known.status_code == unknown.status_code == 401
+    assert known.json == unknown.json
+
+
+def test_ip_limit_blocks_even_right_password(app):
     client = app.test_client()
     for _ in range(10):
-        assert client.post("/api/login", json={"username": "ben", "password": "x" * 12}).status_code == 401
-    # Locked now – even the right password is refused for a while.
+        assert client.post("/api/login", json={"username": "niemand", "password": "x" * 12}).status_code == 401
+    # This IP is blocked for a while now – also for a real account with the right password.
     assert client.post("/api/login", json={"username": "ben", "password": PASSWORD}).status_code == 401
+
+
+def test_account_lock_after_many_failures(app):
+    with sqlite3.connect(app.config["DB"]) as conn:
+        conn.execute("UPDATE users SET failed_logins = 49 WHERE username = 'ben'")
+    client = app.test_client()
+    client.post("/api/login", json={"username": "ben", "password": "x" * 12})
+    other_ip = app.test_client()
+    resp = other_ip.post(
+        "/api/login", json={"username": "ben", "password": PASSWORD}, environ_base={"REMOTE_ADDR": "10.0.0.9"}
+    )
+    assert resp.status_code == 401
 
 
 def test_password_change_ends_other_sessions(app):
@@ -99,6 +119,8 @@ def test_static_files_do_not_expose_server_files(anna):
     assert anna.get("/app.py").status_code == 404
     assert anna.get("/index.html").status_code == 404  # only via "/", with <base> filled in
     assert b'<base href="/">' in anna.get("/").data
+    assert anna.get("/css/../index.html").status_code == 404
+    assert "img-src 'self' data: blob:" in anna.get("/").headers["Content-Security-Policy"]
 
 
 # ---------- diagrams and permissions ----------
@@ -106,7 +128,7 @@ def test_static_files_do_not_expose_server_files(anna):
 
 @pytest.mark.parametrize(
     "payload",
-    [{**DIAGRAM, "name": "  "}, {**DIAGRAM, "name": "x" * 201}, {**DIAGRAM, "theme": "evil"}, {**DIAGRAM, "code": 42}],
+    [{**DIAGRAM, "name": "  "}, {**DIAGRAM, "name": "x" * 201}, {**DIAGRAM, "code": "x" * 50_001}, {**DIAGRAM, "theme": "evil"}, {**DIAGRAM, "code": 42}],
 )
 def test_rejects_invalid_payload(anna, payload):
     assert anna.post("/api/diagrams", json=payload).status_code == 400
@@ -200,3 +222,24 @@ def test_cli_create_user(app):
     result = runner.invoke(args=["create-user", "eva", "--admin", "--password", PASSWORD])
     assert result.exit_code == 0, result.output
     assert login(app, "eva").get("/api/me").json["is_admin"] is True
+
+
+def test_proxy_without_forwarded_for_skips_ip_limit(tmp_path, monkeypatch):
+    monkeypatch.setenv("FLOW_PROXY_HOPS", "1")
+    app = create_app({"DB": str(tmp_path / "p.db"), "SECRET_KEY": "test", "SESSION_COOKIE_SECURE": False})
+    with sqlite3.connect(app.config["DB"]) as conn:
+        conn.execute(
+            "INSERT INTO users (username, password_hash, created) VALUES ('ben', ?, '2026-01-01')",
+            (generate_password_hash(PASSWORD),),
+        )
+    client = app.test_client()
+    for _ in range(12):
+        client.post("/api/login", json={"username": "niemand", "password": "x" * 12})
+    assert client.post("/api/login", json={"username": "ben", "password": PASSWORD}).status_code == 200
+    # With the header, the real client IP is limited.
+    hdr = {"X-Forwarded-For": "203.0.113.7"}
+    for _ in range(10):
+        client.post("/api/login", json={"username": "niemand", "password": "x" * 12}, headers=hdr)
+    assert client.post("/api/login", json={"username": "ben", "password": PASSWORD}, headers=hdr).status_code == 401
+    other = {"X-Forwarded-For": "203.0.113.8"}
+    assert client.post("/api/login", json={"username": "ben", "password": PASSWORD}, headers=other).status_code == 200

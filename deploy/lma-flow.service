@@ -4,7 +4,7 @@ After=default.target
 
 [Service]
 WorkingDirectory=%h/lma-flow
-ExecStart=%h/lma-flow/.venv/bin/gunicorn "app:create_app()" --bind 0.0.0.0:5190 --workers 2 --timeout 60 --access-logfile - --error-logfile -
+ExecStart=%h/lma-flow/.venv/bin/gunicorn "app:create_app()" --bind 0.0.0.0:5190 --workers 2 --timeout 60 --error-logfile -
 Restart=on-failure
 RestartSec=5
 EnvironmentFile=%h/lma-flow/.env

@@ -32,8 +32,10 @@ Third-party licenses: `THIRD_PARTY_NOTICES.md`.
 Roles per diagram: owner (everything, sharing, delete), edit, view. Saving sends the diagram's `version`; a stale
 version gets HTTP 409 and the editor offers: save mine, load theirs, or save as copy.
 
-Security: session cookie (HttpOnly, SameSite=Lax, Secure), password hashes (Werkzeug), 15-minute lock after 10 failed
-logins, password change ends all other sessions. API writes accept only `application/json`.
+Security: session cookie (HttpOnly, SameSite=Lax, Secure), password hashes (Werkzeug), Content-Security-Policy
+(no external scripts or images), equal login timing for known and unknown users, login limit per client IP
+(10 failures / 15 min) and per account (50), password change ends all other sessions, logout clears the local draft.
+API writes accept only `application/json`. Do not store patient data or other personal data of third parties.
 
 ## Configuration
 
@@ -45,6 +47,7 @@ Environment variables, or a `.env` file next to `app.py` (git-ignored):
 | `FLOW_DB` | SQLite file. Default `instance/flow.db` (git-ignored) |
 | `FLOW_BASE_PATH` | URL prefix, e.g. `/flow/`. Default `/` |
 | `FLOW_DEV=1` | Local development: session cookie also over plain HTTP |
+| `FLOW_PROXY_HOPS` | Trusted reverse proxies in front, for the client IP of the login limit. Uberspace: `1` |
 
 Create the first admin: `uv run flask --app app create-user <name> --admin` (prompts for the password).
 
@@ -61,15 +64,22 @@ uv run pytest
 ## Deploy (umbriel, craft.cadamu.ro/flow/)
 
 - Code: `~/lma-flow` (git clone via deploy key, host alias `github-lma-flow`)
-- Config: `~/lma-flow/.env` with `FLOW_SECRET_KEY` and `FLOW_BASE_PATH=/flow/`
+- Config: `~/lma-flow/.env` (mode 600) with `FLOW_SECRET_KEY`, `FLOW_BASE_PATH=/flow/`, `FLOW_PROXY_HOPS=1`
 - Service: `~/.config/systemd/user/lma-flow.service` (gunicorn on port 5190)
 - Web backend: `uberspace web backend add craft.cadamu.ro/flow PORT 5190 --remove-prefix`
 
-Update:
+Update (backup first, fast-forward only, locked dependencies, health check):
 
 ```sh
-ssh umbriel.uberspace.de 'cd ~/lma-flow && git pull && uv sync --no-dev && systemctl --user restart lma-flow'
+ssh umbriel.uberspace.de 'set -e; cd ~/lma-flow \
+  && sqlite3 instance/flow.db ".backup $HOME/backups/lma-flow/pre-deploy-$(date +%Y%m%d-%H%M%S).db" \
+  && git pull --ff-only && uv sync --no-dev --locked \
+  && systemctl --user restart lma-flow && sleep 2 && systemctl --user is-active lma-flow \
+  && curl -s -o /dev/null -w "%{http_code}\n" https://craft.cadamu.ro/flow/login'
 ```
+
+If `deploy/lma-flow.service` changed: copy it to `~/.config/systemd/user/` and run `systemctl --user daemon-reload`
+first. The schema is created with `CREATE TABLE IF NOT EXISTS` – new columns need a manual migration.
 
 Back up `~/lma-flow/instance/flow.db`. The craft site's Apache Basic Auth does not apply under `/flow/` – Flow has
 its own login, so public links work.

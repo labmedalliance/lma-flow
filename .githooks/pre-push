@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+#
+# FORGE / SHIELD pre-push gate — see Projekte/Coding/CODING_REGELN.md
+#
+# Backstop, NOT a replacement for the manual SHIELD+FORGE audit. It scans the
+# commits that are about to be pushed and aborts if any *added* line introduces
+# a hardcoded credential or a known provider-token format, or if a
+# secret-bearing file (.env, *.pem, *.key, credentials.*, id_rsa) is added.
+# It also prints a reminder to run the full audit.
+#
+# Bypass (only after a careful manual review): git push --no-verify
+#
+# Activate (once per clone):  git config core.hooksPath .githooks
+
+set -uo pipefail
+
+z40="0000000000000000000000000000000000000000"
+findings=0
+
+# Hardcoded credential assignments:  SECRET = "…"   /  API_KEY: '…'
+CRED_RE='(PASSWORD|PASSWD|SECRET|TOKEN|API_?KEY|AUTH_?KEY)[[:space:]]*[:=][[:space:]]*("|'"'"')[^"'"'"']{6,}'
+# Known provider token shapes / private keys
+TOKEN_RE='(AKIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9]{20,}|xox[abpr]-[A-Za-z0-9-]{10,}|sk_live_[A-Za-z0-9]{10,}|sk-ant-[A-Za-z0-9_-]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----)'
+# Obvious placeholders that are fine even if they match CRED_RE
+ALLOW_RE='(django-insecure-|example|placeholder|change[-_]?me|replace[-_]?me|dummy|fixme|<your|xxxxx|your[-_]?key|env\()'
+# Secret-bearing file names (added files only); .env.example is allowed
+FILE_RE='(^|/)(\.env(\.[^.]+)?|credentials\.[^/]+|.*\.pem|.*\.key|id_rsa)$'
+
+scan_range() {
+  local diffspec="$1"
+  local added newfiles
+
+  added="$(git diff "$diffspec" --no-color -U0 -- . ':(exclude)*.lock' ':(exclude)*.po' 2>/dev/null \
+            | grep -E '^\+' | grep -vE '^\+\+\+' || true)"
+
+  if printf '%s\n' "$added" | grep -EiI "$CRED_RE" | grep -vEi "$ALLOW_RE" | grep -q .; then
+    echo "✗ pre-push: hardcoded credential pattern in added lines:" >&2
+    printf '%s\n' "$added" | grep -EiI "$CRED_RE" | grep -vEi "$ALLOW_RE" | head -5 >&2
+    findings=1
+  fi
+  if printf '%s\n' "$added" | grep -EI "$TOKEN_RE" | grep -q .; then
+    echo "✗ pre-push: provider token / private key pattern in added lines:" >&2
+    printf '%s\n' "$added" | grep -EI "$TOKEN_RE" | head -5 >&2
+    findings=1
+  fi
+
+  newfiles="$(git diff "$diffspec" --no-color --diff-filter=A --name-only -- . 2>/dev/null || true)"
+  if printf '%s\n' "$newfiles" | grep -E "$FILE_RE" | grep -vE '\.env\.example$' | grep -q .; then
+    echo "✗ pre-push: secret-bearing file added to the repo:" >&2
+    printf '%s\n' "$newfiles" | grep -E "$FILE_RE" | grep -vE '\.env\.example$' >&2
+    findings=1
+  fi
+}
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ "$local_sha" = "$z40" ] && continue          # branch deletion → nothing to scan
+  if [ "$remote_sha" = "$z40" ]; then
+    scan_range "$local_sha"                       # new branch → all reachable commits
+  else
+    scan_range "$remote_sha..$local_sha"          # only the new commits
+  fi
+done
+
+if [ "$findings" -ne 0 ]; then
+  echo "" >&2
+  echo "Push aborted by the FORGE/SHIELD pre-push gate." >&2
+  echo "Review the lines above. If it is a verified false positive:  git push --no-verify" >&2
+  exit 1
+fi
+
+echo "→ pre-push: no secret patterns in the new commits." >&2
+echo "  Reminder: this is only a backstop — run the full SHIELD+FORGE audit before pushing" >&2
+echo "  (Projekte/Coding/CODING_REGELN.md → 'Security vor Deployment')." >&2
+exit 0

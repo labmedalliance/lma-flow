@@ -35,5 +35,8 @@ The bundle contains these open-source libraries under their own licenses:
 | @iconify/utils | MIT | https://github.com/iconify/iconify |
 | @upsetjs/venn.js | MIT | https://github.com/upsetjs/venn.js |
 | es-toolkit, ts-dedent, uuid | MIT | npm |
+| lodash-es | MIT | https://github.com/lodash/lodash |
+| langium, vscode-languageserver, vscode-jsonrpc | MIT | https://github.com/eclipse-langium/langium, https://github.com/microsoft/vscode-languageserver-node |
 
-elkjs is EPL-2.0: its source code is available at the link above.
+elkjs is EPL-2.0: its source code is available at the link above. cytoscape also bundles small MIT-licensed parts
+(Thenable, jQuery event code, bezier helpers); their license headers are kept inside the bundle.
