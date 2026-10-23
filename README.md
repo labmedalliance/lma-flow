@@ -84,6 +84,20 @@ first. The schema is created with `CREATE TABLE IF NOT EXISTS` – new columns n
 Back up `~/lma-flow/instance/flow.db`. The craft site's Apache Basic Auth does not apply under `/flow/` – Flow has
 its own login, so public links work.
 
+## Command-line client
+
+`tools/flow-diagram` (Python standard library only) creates and updates diagrams through the API, e.g. for Claude.
+It reads `FLOW_URL`, `FLOW_USER` and `FLOW_PASSWORD` from `~/.config/flow/credentials`, refuses to run if that file
+is readable by others, and never puts the password on a command line.
+
+```sh
+ln -sf "$PWD/tools/flow-diagram" ~/.local/bin/flow-diagram
+printf 'flowchart LR\n  A --> B\n' | flow-diagram create "My diagram"   # prints the editor URL
+flow-diagram list | get ID | update ID [FILE] | share ID USER view|edit | public ID | delete ID
+```
+
+`update` saves on top of the current server version – run `get` first when others edit the same diagram.
+
 ## Update mermaid
 
 ```sh
