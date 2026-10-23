@@ -47,10 +47,11 @@ MAX_IP_FAILURES = 10  # per client IP and window
 LOCK_MINUTES = 15
 LOGIN_FAILED = "Anmeldung fehlgeschlagen. Prüfe Benutzername und Passwort. Nach vielen Fehlversuchen ist die Anmeldung für 15 Minuten gesperrt."
 # Mermaid needs inline styles; no inline scripts anywhere. img-src blocks external (tracking) images in diagrams.
+# frame-ancestors 'self': the craft overview on the same host may embed Flow, foreign sites may not.
 CSP = (
     "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; "
     "connect-src 'self'; font-src 'self' data:; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; "
-    "form-action 'self'; frame-ancestors 'none'"
+    "form-action 'self'; frame-ancestors 'self'"
 )
 THEMES = {"default", "neutral", "forest", "dark", "base"}
 LOOKS = {"classic", "handDrawn"}
@@ -223,7 +224,7 @@ def create_app(config=None):
     def security_headers(resp):
         resp.headers.setdefault("X-Content-Type-Options", "nosniff")
         resp.headers.setdefault("Referrer-Policy", "no-referrer")
-        resp.headers.setdefault("X-Frame-Options", "DENY")
+        resp.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
         resp.headers.setdefault("X-Robots-Tag", "noindex, nofollow")
         resp.headers.setdefault("Content-Security-Policy", CSP)
         if request.path.startswith("/api/"):
