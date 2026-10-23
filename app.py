@@ -1,114 +1,220 @@
-"""Flow – self-hosted diagram editor with server-side storage.
+"""Flow – self-hosted diagram editor with accounts, sharing and SQLite storage.
 
-Serves the static editor from ``static/`` and a small JSON API that keeps
-diagrams in SQLite.
+Serves the static pages from ``static/`` and a JSON API.
 
-Configuration (environment variables):
+Roles per diagram:
+    owner  – full access, manages sharing, can delete
+    edit   – may change name, code, theme and look
+    view   – read only (may still save a copy of their own)
+A diagram can also get a public read-only link (``v/<token>``) that works
+without login. Saving uses optimistic locking: a stale ``version`` gets 409.
 
-``FLOW_DB``
-    Path to the SQLite file. Default: ``instance/flow.db``.
-``FLOW_USER`` / ``FLOW_PASSWORD_HASH``
-    Login for HTTP Basic Auth. Create the hash with
-    ``uv run python -m flow_hash``. Both are required, unless
-    ``FLOW_NO_AUTH=1`` is set (only for local development).
+Configuration (environment variables or ``.env`` next to this file):
+
+``FLOW_SECRET_KEY``  signs the session cookie (required)
+``FLOW_DB``          SQLite file, default ``instance/flow.db``
+``FLOW_BASE_PATH``   URL prefix the app is served under, default ``/``
+``FLOW_DEV=1``       local development: allows the session cookie over plain HTTP
+
+Create the first admin with ``flask --app app create-user <name> --admin``.
 """
 
 import os
+import secrets
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from functools import wraps
 from pathlib import Path
 
-from flask import Flask, abort, g, jsonify, request, send_from_directory
-from werkzeug.security import check_password_hash
+import click
+from flask import Flask, abort, g, jsonify, redirect, request, send_from_directory, session
+from werkzeug.security import check_password_hash, generate_password_hash
 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
+HTML_PAGES = {"index.html", "login.html", "admin.html", "view.html"}
+
 MAX_CODE_CHARS = 200_000
 MAX_NAME_CHARS = 200
+MIN_PASSWORD_CHARS = 10
+MAX_FAILED_LOGINS = 10
+LOCK_MINUTES = 15
 THEMES = {"default", "neutral", "forest", "dark", "base"}
 LOOKS = {"classic", "handDrawn"}
+ROLES = {"view", "edit"}
 
 SCHEMA = """
+PRAGMA foreign_keys = ON;
+CREATE TABLE IF NOT EXISTS users (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    username      TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    password_hash TEXT NOT NULL,
+    is_admin      INTEGER NOT NULL DEFAULT 0,
+    session_gen   INTEGER NOT NULL DEFAULT 0,
+    failed_logins INTEGER NOT NULL DEFAULT 0,
+    locked_until  TEXT,
+    created       TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS diagrams (
-    id      INTEGER PRIMARY KEY AUTOINCREMENT,
-    name    TEXT NOT NULL,
-    code    TEXT NOT NULL,
-    theme   TEXT NOT NULL DEFAULT 'default',
-    look    TEXT NOT NULL DEFAULT 'classic',
-    created TEXT NOT NULL,
-    updated TEXT NOT NULL
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    owner_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name         TEXT NOT NULL,
+    code         TEXT NOT NULL,
+    theme        TEXT NOT NULL DEFAULT 'default',
+    look         TEXT NOT NULL DEFAULT 'classic',
+    version      INTEGER NOT NULL DEFAULT 1,
+    public_token TEXT UNIQUE,
+    created      TEXT NOT NULL,
+    updated      TEXT NOT NULL,
+    updated_by   INTEGER REFERENCES users(id) ON DELETE SET NULL
+);
+CREATE TABLE IF NOT EXISTS diagram_access (
+    diagram_id INTEGER NOT NULL REFERENCES diagrams(id) ON DELETE CASCADE,
+    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    role       TEXT NOT NULL CHECK (role IN ('view', 'edit')),
+    PRIMARY KEY (diagram_id, user_id)
 );
 """
 
 
+def now():
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def load_env_file(path):
+    """Read KEY=VALUE lines from ``path`` into os.environ (existing values win)."""
+    if not path.exists():
+        return
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line and not line.startswith("#") and "=" in line:
+            key, value = line.split("=", 1)
+            os.environ.setdefault(key.strip(), value.strip().strip("\"'"))
+
+
+def connect(db_path):
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
+    return conn
+
+
 def create_app(config=None):
     """Build the Flask app. ``config`` overrides environment settings (tests)."""
+    load_env_file(BASE_DIR / ".env")
     app = Flask(__name__, static_folder=None)
+    dev = os.environ.get("FLOW_DEV") == "1"
     app.config.update(
+        SECRET_KEY=os.environ.get("FLOW_SECRET_KEY"),
         DB=os.environ.get("FLOW_DB", str(BASE_DIR / "instance" / "flow.db")),
-        USER=os.environ.get("FLOW_USER"),
-        PASSWORD_HASH=os.environ.get("FLOW_PASSWORD_HASH"),
-        NO_AUTH=os.environ.get("FLOW_NO_AUTH") == "1",
+        BASE_PATH=os.environ.get("FLOW_BASE_PATH", "/"),
         MAX_CONTENT_LENGTH=1024 * 1024,
+        SESSION_COOKIE_NAME="flow_session",
+        SESSION_COOKIE_HTTPONLY=True,
+        SESSION_COOKIE_SAMESITE="Lax",
+        SESSION_COOKIE_SECURE=not dev,
+        PERMANENT_SESSION_LIFETIME=timedelta(days=30),
     )
     app.config.update(config or {})
-
-    # Fail closed: never run without a login by accident.
-    if not app.config["NO_AUTH"] and not (app.config["USER"] and app.config["PASSWORD_HASH"]):
-        raise RuntimeError("Set FLOW_USER and FLOW_PASSWORD_HASH, or FLOW_NO_AUTH=1 for local development.")
+    if not app.config["SECRET_KEY"]:
+        raise RuntimeError("FLOW_SECRET_KEY is not set (see README).")
+    base = app.config["BASE_PATH"].rstrip("/") + "/"
+    app.config["SESSION_COOKIE_PATH"] = base
 
     Path(app.config["DB"]).parent.mkdir(parents=True, exist_ok=True)
-    with sqlite3.connect(app.config["DB"]) as conn:
+    with connect(app.config["DB"]) as conn:
         conn.executescript(SCHEMA)
 
-    def get_db():
+    # ---------- helpers ----------
+
+    def db():
         if "db" not in g:
-            g.db = sqlite3.connect(app.config["DB"])
-            g.db.row_factory = sqlite3.Row
+            g.db = connect(app.config["DB"])
         return g.db
 
     @app.teardown_appcontext
     def close_db(_exc):
-        db = g.pop("db", None)
-        if db is not None:
-            db.close()
+        conn = g.pop("db", None)
+        if conn is not None:
+            conn.close()
+
+    def current_user():
+        """The logged-in user row, or None. Sessions die when the password changes."""
+        if "user" in g:
+            return g.user
+        g.user = None
+        uid = session.get("uid")
+        if uid is not None:
+            row = db().execute("SELECT * FROM users WHERE id = ?", (uid,)).fetchone()
+            if row and row["session_gen"] == session.get("gen"):
+                g.user = row
+            else:
+                session.clear()
+        return g.user
+
+    def login_required(view):
+        @wraps(view)
+        def wrapper(*args, **kwargs):
+            if current_user() is None:
+                abort(401)
+            return view(*args, **kwargs)
+
+        return wrapper
+
+    def admin_required(view):
+        @wraps(view)
+        @login_required
+        def wrapper(*args, **kwargs):
+            if not current_user()["is_admin"]:
+                abort(403)
+            return view(*args, **kwargs)
+
+        return wrapper
 
     @app.before_request
-    def require_login():
-        if app.config["NO_AUTH"]:
-            return None
-        auth = request.authorization
-        if (
-            auth
-            and auth.username == app.config["USER"]
-            and check_password_hash(app.config["PASSWORD_HASH"], auth.password or "")
-        ):
-            return None
-        return ("Login erforderlich", 401, {"WWW-Authenticate": 'Basic realm="Flow"'})
+    def json_only_writes():
+        """API writes must be JSON. Cross-site HTML forms cannot send that."""
+        if request.path.startswith("/api/") and request.method in ("POST", "PUT") and not request.is_json:
+            abort(415)
 
     @app.after_request
     def security_headers(resp):
         resp.headers.setdefault("X-Content-Type-Options", "nosniff")
         resp.headers.setdefault("Referrer-Policy", "no-referrer")
         resp.headers.setdefault("X-Frame-Options", "DENY")
+        resp.headers.setdefault("X-Robots-Tag", "noindex, nofollow")
+        if request.path.startswith("/api/"):
+            resp.headers.setdefault("Cache-Control", "no-store")
         return resp
 
-    def json_api(view):
-        """Only accept real JSON bodies on writes – blocks cross-site form posts."""
+    @app.errorhandler(400)
+    @app.errorhandler(401)
+    @app.errorhandler(403)
+    @app.errorhandler(404)
+    @app.errorhandler(409)
+    @app.errorhandler(415)
+    def json_error(err):
+        if request.path.startswith("/api/"):
+            return jsonify(error=err.description), err.code
+        return err
 
-        @wraps(view)
-        def wrapper(*args, **kwargs):
-            if request.method in ("POST", "PUT") and not request.is_json:
-                abort(415)
-            return view(*args, **kwargs)
-
-        return wrapper
-
-    def validate(data):
-        """Check and normalise a diagram payload. Aborts with 400 on bad input."""
+    def body():
+        data = request.get_json(silent=True)
         if not isinstance(data, dict):
-            abort(400)
+            abort(400, "Ungültige Anfrage.")
+        return data
+
+    def page(name):
+        """Serve an HTML page with the right <base href> for the URL prefix."""
+        html = (STATIC_DIR / name).read_text(encoding="utf-8").replace("{{BASE}}", base)
+        return html, 200, {"Content-Type": "text/html; charset=utf-8"}
+
+    def validate_password(pw):
+        if not isinstance(pw, str) or len(pw) < MIN_PASSWORD_CHARS:
+            abort(400, f"Das Passwort braucht mindestens {MIN_PASSWORD_CHARS} Zeichen.")
+        return pw
+
+    def validate_diagram(data):
         name = str(data.get("name", "")).strip()
         code = data.get("code", "")
         theme = data.get("theme", "default")
@@ -121,20 +227,67 @@ def create_app(config=None):
             abort(400, "Unbekanntes Theme oder Stil.")
         return {"name": name, "code": code, "theme": theme, "look": look}
 
-    def now():
-        return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    def role_for(diagram, user):
+        if diagram["owner_id"] == user["id"]:
+            return "owner"
+        row = db().execute(
+            "SELECT role FROM diagram_access WHERE diagram_id = ? AND user_id = ?", (diagram["id"], user["id"])
+        ).fetchone()
+        return row["role"] if row else None
 
-    def fetch(diagram_id):
-        row = get_db().execute("SELECT * FROM diagrams WHERE id = ?", (diagram_id,)).fetchone()
-        if row is None:
-            abort(404)
-        return dict(row)
+    def load_diagram(diagram_id, need="view"):
+        """Fetch a diagram the current user may access. 404 if they may not even see it."""
+        row = db().execute("SELECT * FROM diagrams WHERE id = ?", (diagram_id,)).fetchone()
+        role = role_for(row, current_user()) if row else None
+        if role is None:
+            abort(404, "Diagramm nicht gefunden.")
+        allowed = {"view": {"view", "edit", "owner"}, "edit": {"edit", "owner"}, "owner": {"owner"}}[need]
+        if role not in allowed:
+            abort(403, "Dafür fehlt dir die Berechtigung.")
+        return row, role
+
+    def diagram_json(row, role):
+        names = db().execute(
+            "SELECT (SELECT username FROM users WHERE id = ?) AS owner, (SELECT username FROM users WHERE id = ?) AS by",
+            (row["owner_id"], row["updated_by"]),
+        ).fetchone()
+        data = {
+            "id": row["id"],
+            "name": row["name"],
+            "code": row["code"],
+            "theme": row["theme"],
+            "look": row["look"],
+            "version": row["version"],
+            "updated": row["updated"],
+            "updated_by": names["by"],
+            "owner": names["owner"],
+            "role": role,
+        }
+        if role == "owner":
+            data["public_token"] = row["public_token"]
+        return data
 
     # ---------- pages ----------
 
     @app.get("/")
     def index():
-        return send_from_directory(STATIC_DIR, "index.html")
+        if current_user() is None:
+            return redirect(base + "login")
+        return page("index.html")
+
+    @app.get("/login")
+    def login_page():
+        return page("login.html")
+
+    @app.get("/admin")
+    def admin_page():
+        if current_user() is None:
+            return redirect(base + "login")
+        return page("admin.html")
+
+    @app.get("/v/<token>")
+    def public_page(token):
+        return page("view.html")
 
     @app.get("/licenses")
     def licenses():
@@ -142,55 +295,294 @@ def create_app(config=None):
 
     @app.get("/<path:filename>")
     def static_files(filename):
+        if filename in HTML_PAGES:
+            abort(404)  # pages only via their routes, with <base> filled in
         return send_from_directory(STATIC_DIR, filename)
 
-    # ---------- API ----------
+    # ---------- session ----------
+
+    @app.post("/api/login")
+    def login():
+        data = body()
+        username = str(data.get("username", "")).strip()
+        password = str(data.get("password", ""))
+        conn = db()
+        user = conn.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
+        if user and user["locked_until"] and user["locked_until"] > now():
+            abort(401, "Zu viele Fehlversuche. Bitte später erneut versuchen.")
+        if not user or not check_password_hash(user["password_hash"], password):
+            if user:
+                failed = user["failed_logins"] + 1
+                locked = None
+                if failed >= MAX_FAILED_LOGINS:
+                    failed = 0
+                    locked = (datetime.now(timezone.utc) + timedelta(minutes=LOCK_MINUTES)).isoformat(
+                        timespec="seconds"
+                    )
+                conn.execute(
+                    "UPDATE users SET failed_logins = ?, locked_until = ? WHERE id = ?", (failed, locked, user["id"])
+                )
+                conn.commit()
+            abort(401, "Benutzername oder Passwort falsch.")
+        conn.execute("UPDATE users SET failed_logins = 0, locked_until = NULL WHERE id = ?", (user["id"],))
+        conn.commit()
+        session.clear()
+        session.permanent = True
+        session["uid"] = user["id"]
+        session["gen"] = user["session_gen"]
+        return jsonify(username=user["username"])
+
+    @app.post("/api/logout")
+    def logout():
+        session.clear()
+        return jsonify(ok=True)
+
+    @app.get("/api/me")
+    @login_required
+    def me():
+        user = current_user()
+        return jsonify(id=user["id"], username=user["username"], is_admin=bool(user["is_admin"]))
+
+    @app.put("/api/me/password")
+    @login_required
+    def change_password():
+        data = body()
+        user = current_user()
+        if not check_password_hash(user["password_hash"], str(data.get("old", ""))):
+            abort(400, "Das bisherige Passwort stimmt nicht.")
+        new_hash = generate_password_hash(validate_password(data.get("new")))
+        conn = db()
+        conn.execute(
+            "UPDATE users SET password_hash = ?, session_gen = session_gen + 1 WHERE id = ?", (new_hash, user["id"])
+        )
+        conn.commit()
+        session["gen"] = user["session_gen"] + 1  # stay logged in here, end all other sessions
+        return jsonify(ok=True)
+
+    @app.get("/api/users")
+    @login_required
+    def list_usernames():
+        """All other users – for the share dialog."""
+        rows = db().execute(
+            "SELECT id, username FROM users WHERE id != ? ORDER BY username", (current_user()["id"],)
+        ).fetchall()
+        return jsonify([dict(r) for r in rows])
+
+    # ---------- diagrams ----------
 
     @app.get("/api/diagrams")
+    @login_required
     def list_diagrams():
-        rows = get_db().execute("SELECT id, name, updated FROM diagrams ORDER BY updated DESC").fetchall()
+        uid = current_user()["id"]
+        rows = db().execute(
+            """
+            SELECT d.id, d.name, d.updated, u.username AS owner,
+                   CASE WHEN d.owner_id = ? THEN 'owner' ELSE a.role END AS role
+            FROM diagrams d
+            JOIN users u ON u.id = d.owner_id
+            LEFT JOIN diagram_access a ON a.diagram_id = d.id AND a.user_id = ?
+            WHERE d.owner_id = ? OR a.user_id IS NOT NULL
+            ORDER BY d.updated DESC
+            """,
+            (uid, uid, uid),
+        ).fetchall()
         return jsonify([dict(r) for r in rows])
 
     @app.get("/api/diagrams/<int:diagram_id>")
+    @login_required
     def get_diagram(diagram_id):
-        return jsonify(fetch(diagram_id))
+        return jsonify(diagram_json(*load_diagram(diagram_id)))
 
     @app.post("/api/diagrams")
-    @json_api
+    @login_required
     def create_diagram():
-        d = validate(request.get_json())
-        ts = now()
-        db = get_db()
-        cur = db.execute(
-            "INSERT INTO diagrams (name, code, theme, look, created, updated) VALUES (?, ?, ?, ?, ?, ?)",
-            (d["name"], d["code"], d["theme"], d["look"], ts, ts),
+        d = validate_diagram(body())
+        ts, uid = now(), current_user()["id"]
+        conn = db()
+        cur = conn.execute(
+            "INSERT INTO diagrams (owner_id, name, code, theme, look, created, updated, updated_by)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (uid, d["name"], d["code"], d["theme"], d["look"], ts, ts, uid),
         )
-        db.commit()
-        return jsonify(fetch(cur.lastrowid)), 201
+        conn.commit()
+        return jsonify(diagram_json(*load_diagram(cur.lastrowid))), 201
 
     @app.put("/api/diagrams/<int:diagram_id>")
-    @json_api
+    @login_required
     def update_diagram(diagram_id):
-        fetch(diagram_id)
-        d = validate(request.get_json())
-        db = get_db()
-        db.execute(
-            "UPDATE diagrams SET name = ?, code = ?, theme = ?, look = ?, updated = ? WHERE id = ?",
-            (d["name"], d["code"], d["theme"], d["look"], now(), diagram_id),
+        data = body()
+        row, role = load_diagram(diagram_id, need="edit")
+        d = validate_diagram(data)
+        if data.get("version") != row["version"]:
+            # Someone else saved in between – hand back their version.
+            return jsonify(error="conflict", current=diagram_json(row, role)), 409
+        conn = db()
+        conn.execute(
+            "UPDATE diagrams SET name = ?, code = ?, theme = ?, look = ?, version = version + 1,"
+            " updated = ?, updated_by = ? WHERE id = ? AND version = ?",
+            (d["name"], d["code"], d["theme"], d["look"], now(), current_user()["id"], diagram_id, row["version"]),
         )
-        db.commit()
-        return jsonify(fetch(diagram_id))
+        conn.commit()
+        return jsonify(diagram_json(*load_diagram(diagram_id)))
 
     @app.delete("/api/diagrams/<int:diagram_id>")
+    @login_required
     def delete_diagram(diagram_id):
-        fetch(diagram_id)
-        db = get_db()
-        db.execute("DELETE FROM diagrams WHERE id = ?", (diagram_id,))
-        db.commit()
+        load_diagram(diagram_id, need="owner")
+        conn = db()
+        conn.execute("DELETE FROM diagrams WHERE id = ?", (diagram_id,))
+        conn.commit()
         return "", 204
+
+    # ---------- sharing ----------
+
+    @app.get("/api/diagrams/<int:diagram_id>/access")
+    @login_required
+    def list_access(diagram_id):
+        load_diagram(diagram_id, need="owner")
+        rows = db().execute(
+            "SELECT u.id AS user_id, u.username, a.role FROM diagram_access a JOIN users u ON u.id = a.user_id"
+            " WHERE a.diagram_id = ? ORDER BY u.username",
+            (diagram_id,),
+        ).fetchall()
+        return jsonify([dict(r) for r in rows])
+
+    @app.put("/api/diagrams/<int:diagram_id>/access/<int:user_id>")
+    @login_required
+    def set_access(diagram_id, user_id):
+        row, _ = load_diagram(diagram_id, need="owner")
+        role = body().get("role")
+        if role not in ROLES:
+            abort(400, "Unbekannte Rolle.")
+        if user_id == row["owner_id"]:
+            abort(400, "Du bist bereits Besitzer.")
+        conn = db()
+        if not conn.execute("SELECT 1 FROM users WHERE id = ?", (user_id,)).fetchone():
+            abort(404, "Benutzer nicht gefunden.")
+        conn.execute(
+            "INSERT INTO diagram_access (diagram_id, user_id, role) VALUES (?, ?, ?)"
+            " ON CONFLICT (diagram_id, user_id) DO UPDATE SET role = excluded.role",
+            (diagram_id, user_id, role),
+        )
+        conn.commit()
+        return list_access(diagram_id)
+
+    @app.delete("/api/diagrams/<int:diagram_id>/access/<int:user_id>")
+    @login_required
+    def remove_access(diagram_id, user_id):
+        load_diagram(diagram_id, need="owner")
+        conn = db()
+        conn.execute("DELETE FROM diagram_access WHERE diagram_id = ? AND user_id = ?", (diagram_id, user_id))
+        conn.commit()
+        return list_access(diagram_id)
+
+    @app.post("/api/diagrams/<int:diagram_id>/public")
+    @login_required
+    def create_public_link(diagram_id):
+        row, _ = load_diagram(diagram_id, need="owner")
+        token = row["public_token"] or secrets.token_urlsafe(18)
+        conn = db()
+        conn.execute("UPDATE diagrams SET public_token = ? WHERE id = ?", (token, diagram_id))
+        conn.commit()
+        return jsonify(public_token=token)
+
+    @app.delete("/api/diagrams/<int:diagram_id>/public")
+    @login_required
+    def revoke_public_link(diagram_id):
+        load_diagram(diagram_id, need="owner")
+        conn = db()
+        conn.execute("UPDATE diagrams SET public_token = NULL WHERE id = ?", (diagram_id,))
+        conn.commit()
+        return "", 204
+
+    @app.get("/api/public/<token>")
+    def public_diagram(token):
+        row = db().execute("SELECT name, code, theme, look FROM diagrams WHERE public_token = ?", (token,)).fetchone()
+        if row is None:
+            abort(404, "Dieser Link ist ungültig oder wurde deaktiviert.")
+        return jsonify(dict(row))
+
+    # ---------- admin ----------
+
+    @app.get("/api/admin/users")
+    @admin_required
+    def admin_list_users():
+        rows = db().execute(
+            "SELECT u.id, u.username, u.is_admin, u.created,"
+            " (SELECT COUNT(*) FROM diagrams d WHERE d.owner_id = u.id) AS diagrams"
+            " FROM users u ORDER BY u.username"
+        ).fetchall()
+        return jsonify([dict(r) for r in rows])
+
+    @app.post("/api/admin/users")
+    @admin_required
+    def admin_create_user():
+        data = body()
+        username = str(data.get("username", "")).strip()
+        if not username or len(username) > 64:
+            abort(400, "Benutzername fehlt oder ist zu lang.")
+        pw_hash = generate_password_hash(validate_password(data.get("password")))
+        conn = db()
+        try:
+            conn.execute(
+                "INSERT INTO users (username, password_hash, is_admin, created) VALUES (?, ?, ?, ?)",
+                (username, pw_hash, 1 if data.get("is_admin") else 0, now()),
+            )
+        except sqlite3.IntegrityError:
+            abort(409, "Diesen Benutzernamen gibt es schon.")
+        conn.commit()
+        return admin_list_users(), 201
+
+    @app.put("/api/admin/users/<int:user_id>/password")
+    @admin_required
+    def admin_reset_password(user_id):
+        pw_hash = generate_password_hash(validate_password(body().get("password")))
+        conn = db()
+        cur = conn.execute(
+            "UPDATE users SET password_hash = ?, session_gen = session_gen + 1, failed_logins = 0,"
+            " locked_until = NULL WHERE id = ?",
+            (pw_hash, user_id),
+        )
+        if cur.rowcount == 0:
+            abort(404, "Benutzer nicht gefunden.")
+        conn.commit()
+        if user_id == current_user()["id"]:
+            session["gen"] = current_user()["session_gen"] + 1
+        return jsonify(ok=True)
+
+    @app.delete("/api/admin/users/<int:user_id>")
+    @admin_required
+    def admin_delete_user(user_id):
+        if user_id == current_user()["id"]:
+            abort(400, "Du kannst dich nicht selbst löschen.")
+        conn = db()
+        conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+        conn.commit()
+        return "", 204
+
+    # ---------- CLI ----------
+
+    @app.cli.command("create-user")
+    @click.argument("username")
+    @click.option("--admin", is_flag=True, help="Give admin rights.")
+    @click.password_option()
+    def create_user_cmd(username, admin, password):
+        """Create a user account (prompts for the password)."""
+        if len(password) < MIN_PASSWORD_CHARS:
+            raise click.ClickException(f"Password needs at least {MIN_PASSWORD_CHARS} characters.")
+        with connect(app.config["DB"]) as conn:
+            try:
+                conn.execute(
+                    "INSERT INTO users (username, password_hash, is_admin, created) VALUES (?, ?, ?, ?)",
+                    (username, generate_password_hash(password), 1 if admin else 0, now()),
+                )
+            except sqlite3.IntegrityError as exc:
+                raise click.ClickException("User exists already.") from exc
+        click.echo(f"Created user {username}{' (admin)' if admin else ''}.")
 
     return app
 
 
 if __name__ == "__main__":
+    os.environ.setdefault("FLOW_DEV", "1")
     create_app().run(host="127.0.0.1", port=int(os.environ.get("FLOW_PORT", "5190")))

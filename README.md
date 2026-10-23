@@ -1,16 +1,18 @@
 # Flow
 
 A small, self-hosted diagram editor: write diagram code on the left, see the diagram on the right. Same idea as the
-public mermaid live editor, but with its own UI, server-side storage and no external services.
+public mermaid live editor, but with its own UI, accounts, sharing and server-side storage.
 
 - Live preview with error display (last good diagram stays visible, dimmed)
 - 10 starter templates (flowchart, sequence, class, state, ER, Gantt, pie, mindmap, timeline, git graph)
 - Themes and a hand-drawn look
+- Accounts with login; an admin creates users on the admin page (`admin`)
 - Diagrams saved on the server (SQLite): New, Open, Save, Save as copy, Delete
-- Each saved diagram has its own URL (`?id=<n>`) to reopen and edit it later
-- Unsaved draft kept in the browser, so a reload loses nothing; `Cmd/Ctrl+S` saves
+- Share a diagram with other users to read or edit; everyone else does not see it
+- Public read-only link (`v/<token>`) for people without an account, can be switched off again
+- Editing by turns: if someone else saved in the meantime, Flow warns instead of overwriting
+- Each saved diagram has its own URL (`?id=<n>`); the unsaved draft survives a reload; `Cmd/Ctrl+S` saves
 - Export as SVG or PNG (2x)
-- Share link: the diagram is compressed into the URL fragment and needs no saving
 
 ## How it works
 
@@ -22,51 +24,55 @@ Third-party licenses: `THIRD_PARTY_NOTICES.md`.
 
 | Part | File |
 |---|---|
-| Backend: Flask, JSON API, SQLite, Basic Auth | `app.py` |
-| Frontend | `static/index.html`, `static/js/app.js`, `static/css/app.css` |
+| Backend: Flask, JSON API, SQLite, login, sharing | `app.py` |
+| Editor | `static/index.html`, `static/js/app.js` |
+| Login, admin, public view | `static/login.html`, `static/admin.html`, `static/view.html` + `static/js/*.js` |
 | Templates | `static/js/examples.js` |
 
-API: `GET/POST /api/diagrams`, `GET/PUT/DELETE /api/diagrams/<id>`. Writes accept only `application/json`, which
-blocks cross-site form posts.
+Roles per diagram: owner (everything, sharing, delete), edit, view. Saving sends the diagram's `version`; a stale
+version gets HTTP 409 and the editor offers: save mine, load theirs, or save as copy.
+
+Security: session cookie (HttpOnly, SameSite=Lax, Secure), password hashes (Werkzeug), 15-minute lock after 10 failed
+logins, password change ends all other sessions. API writes accept only `application/json`.
 
 ## Configuration
 
+Environment variables, or a `.env` file next to `app.py` (git-ignored):
+
 | Variable | Meaning |
 |---|---|
+| `FLOW_SECRET_KEY` | Signs the session cookie – required, e.g. `python3 -c "import secrets; print(secrets.token_hex(32))"` |
 | `FLOW_DB` | SQLite file. Default `instance/flow.db` (git-ignored) |
-| `FLOW_USER` | Login name for HTTP Basic Auth |
-| `FLOW_PASSWORD_HASH` | Password hash, create with `uv run python -m flow_hash` |
-| `FLOW_NO_AUTH=1` | Disable login – local development only |
+| `FLOW_BASE_PATH` | URL prefix, e.g. `/flow/`. Default `/` |
+| `FLOW_DEV=1` | Local development: session cookie also over plain HTTP |
 
-The app refuses to start without login settings unless `FLOW_NO_AUTH=1` is set.
+Create the first admin: `uv run flask --app app create-user <name> --admin` (prompts for the password).
 
 ## Run locally
 
 ```sh
 uv sync
-FLOW_NO_AUTH=1 uv run python app.py      # http://127.0.0.1:5190/
+export FLOW_SECRET_KEY=dev FLOW_DEV=1
+uv run flask --app app create-user me --admin
+uv run python app.py                     # http://127.0.0.1:5190/
 uv run pytest
 ```
 
-## Deploy (Uberspace)
+## Deploy (umbriel, craft.cadamu.ro/flow/)
+
+- Code: `~/lma-flow` (git clone via deploy key, host alias `github-lma-flow`)
+- Config: `~/lma-flow/.env` with `FLOW_SECRET_KEY` and `FLOW_BASE_PATH=/flow/`
+- Service: `~/.config/systemd/user/lma-flow.service` (gunicorn on port 5190)
+- Web backend: `uberspace web backend add craft.cadamu.ro/flow PORT 5190 --remove-prefix`
+
+Update:
 
 ```sh
-git clone <repo> ~/lma-flow && cd ~/lma-flow && uv sync --no-dev
-uv run python -m flow_hash               # copy the hash
+ssh umbriel.uberspace.de 'cd ~/lma-flow && git pull && uv sync --no-dev && systemctl --user restart lma-flow'
 ```
 
-Run it as a service, for example `~/etc/services.d/lma-flow.ini`:
-
-```ini
-[program:lma-flow]
-directory=%(ENV_HOME)s/lma-flow
-command=%(ENV_HOME)s/lma-flow/.venv/bin/gunicorn -b 0.0.0.0:<PORT> "app:create_app()"
-environment=FLOW_USER="<user>",FLOW_PASSWORD_HASH="<hash>"
-autorestart=true
-```
-
-Then point a web backend at the port, e.g. `uberspace web backend set <domain>/flow --http --port <PORT>`.
-The frontend uses relative paths, so it works under a sub path like `/flow/`. Back up `instance/flow.db`.
+Back up `~/lma-flow/instance/flow.db`. The craft site's Apache Basic Auth does not apply under `/flow/` – Flow has
+its own login, so public links work.
 
 ## Update mermaid
 
