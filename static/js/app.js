@@ -560,9 +560,17 @@
     if (draft && draft.user !== me.id) draft = null; // never show another user's draft
     const params = new URLSearchParams(location.search);
     if (params.get("new")) {
+      let example = null; // "Ausprobieren" on the help page hands its code over once
+      if (params.get("from") === "help") {
+        try {
+          example = sessionStorage.getItem("flow.handoff");
+          sessionStorage.removeItem("flow.handoff");
+        } catch (e) { /* storage blocked – start blank */ }
+      }
       const keepDraft = draft && draft.dirty && draft.code.trim()
         && !window.confirm("Es gibt einen ungespeicherten Entwurf. Verwerfen und neu beginnen?");
-      return keepDraft ? loadDoc(draft) : loadDoc({});
+      if (keepDraft) return loadDoc(draft);
+      return loadDoc(example ? { code: example, dirty: true } : {});
     }
     const idParam = params.get("id");
     if (idParam) {

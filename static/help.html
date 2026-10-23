@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <base href="{{BASE}}">
+  <title>Hilfe – Flow</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body class="page">
+  <header class="topbar">
+    <a class="brand" href="./">Flow</a>
+    <span>Hilfe</span>
+    <span class="spacer"></span>
+    <a class="button" href="./">Zur Übersicht</a>
+    <a class="button primary" href="edit?new=1">Neues Diagramm</a>
+  </header>
+
+  <main class="content help">
+    <nav class="card toc" aria-label="Inhalt">
+      <a href="help#grundlagen">Grundlagen</a>
+      <a href="help#formen">Formen</a>
+      <a href="help#pfeile">Pfeile</a>
+      <a href="help#farben">Farben</a>
+      <a href="help#gruppen">Gruppen</a>
+      <a href="help#text">Text und Sonderzeichen</a>
+      <a href="help#typen">Andere Diagrammtypen</a>
+      <a href="help#fehler">Häufige Fehler</a>
+      <a href="help#bedienung">Bedienung</a>
+    </nav>
+
+    <section id="grundlagen" class="card">
+      <h2>Grundlagen</h2>
+      <p>Du beschreibst ein Diagramm als Text. Die Vorschau rechts im Editor zeichnet es sofort neu.</p>
+      <ul>
+        <li>Die <strong>erste Zeile</strong> nennt den Diagrammtyp, zum Beispiel <code>flowchart</code> für ein
+          Flussdiagramm.</li>
+        <li>Direkt dahinter steht die <strong>Richtung</strong>: <code>TD</code> von oben nach unten,
+          <code>LR</code> von links nach rechts. <code>BT</code> und <code>RL</code> drehen die Richtung um.</li>
+        <li>Jede weitere Zeile beschreibt einen Knoten oder eine Verbindung. Einrücken ist erlaubt und macht den Code
+          lesbarer.</li>
+        <li>Ein Knoten hat eine <strong>ID</strong> und einen <strong>Text</strong>: <code>A[Probe eingegangen]</code>.
+          Die ID nutzt du für Verbindungen, angezeigt wird der Text.</li>
+      </ul>
+      <div class="example">
+        <pre class="example-code">flowchart LR
+    A[Probe eingegangen] --> B[Zentrifugieren]
+    B --> C[Messen]
+    C --> D[Befund freigeben]</pre>
+      </div>
+      <p>Einen Knoten, den du schon kennst, schreibst du später nur noch mit seiner ID. Mehrere Pfeile in einer Zeile
+        sind erlaubt: <code>A --> B --> C</code>.</p>
+    </section>
+
+    <section id="formen" class="card">
+      <h2>Formen</h2>
+      <p>Die Klammern um den Text bestimmen die Form. Die häufigsten Formen haben eine Kurzschreibweise:</p>
+      <div class="shape-grid">
+        <figure class="shape"><code>A[Rechteck]</code></figure>
+        <figure class="shape"><code>A(Abgerundet)</code></figure>
+        <figure class="shape"><code>A([Start oder Ende])</code></figure>
+        <figure class="shape"><code>A{Entscheidung?}</code></figure>
+        <figure class="shape"><code>A((Kreis))</code></figure>
+        <figure class="shape"><code>A(((Doppelkreis)))</code></figure>
+        <figure class="shape"><code>A[(Datenbank)]</code></figure>
+        <figure class="shape"><code>A[[Unterprozess]]</code></figure>
+        <figure class="shape"><code>A{{Vorbereitung}}</code></figure>
+        <figure class="shape"><code>A[/Eingabe/]</code></figure>
+        <figure class="shape"><code>A[\Ausgabe\]</code></figure>
+        <figure class="shape"><code>A>Fähnchen]</code></figure>
+      </div>
+      <p>Weitere Formen setzt du mit <code>@{ shape: … }</code>. Den Text gibst du dann mit <code>label</code> an:</p>
+      <div class="shape-grid">
+        <figure class="shape"><code>A@{ shape: doc, label: "Dokument" }</code></figure>
+        <figure class="shape"><code>A@{ shape: docs, label: "Mehrere Dokumente" }</code></figure>
+        <figure class="shape"><code>A@{ shape: procs, label: "Mehrere Schritte" }</code></figure>
+        <figure class="shape"><code>A@{ shape: delay, label: "Wartezeit" }</code></figure>
+        <figure class="shape"><code>A@{ shape: sl-rect, label: "Manuelle Eingabe" }</code></figure>
+        <figure class="shape"><code>A@{ shape: trap-t, label: "Manueller Schritt" }</code></figure>
+        <figure class="shape"><code>A@{ shape: notch-rect, label: "Karte" }</code></figure>
+        <figure class="shape"><code>A@{ shape: lin-cyl, label: "Speicher" }</code></figure>
+        <figure class="shape"><code>A@{ shape: tri, label: "Auszug" }</code></figure>
+        <figure class="shape"><code>A@{ shape: hourglass, label: "Sammeln" }</code></figure>
+        <figure class="shape"><code>A@{ shape: flag, label: "Etikett" }</code></figure>
+        <figure class="shape"><code>A@{ shape: bolt, label: "Übertragung" }</code></figure>
+        <figure class="shape"><code>A@{ shape: sm-circ, label: "Start" }</code></figure>
+        <figure class="shape"><code>A@{ shape: framed-circle, label: "Stopp" }</code></figure>
+        <figure class="shape"><code>A@{ shape: fork, label: "Verzweigung" }</code></figure>
+        <figure class="shape"><code>A@{ shape: braces, label: "Kommentar" }</code></figure>
+        <figure class="shape"><code>A@{ shape: text, label: "Nur Text" }</code></figure>
+        <figure class="shape"><code>A@{ shape: cross-circ, label: "Zusammenfassung" }</code></figure>
+      </div>
+    </section>
+
+    <section id="pfeile" class="card">
+      <h2>Pfeile</h2>
+      <p>Die Zeichen zwischen zwei Knoten bestimmen die Art der Verbindung. Text auf dem Pfeil steht zwischen zwei
+        senkrechten Strichen.</p>
+      <div class="example">
+        <pre class="example-code">flowchart LR
+    A[Pfeil] --> B[Linie ohne Spitze]
+    B --- C[Gepunktet]
+    C -.-> D[Dick]
+    D ==> E[Mit Text]
+    E -->|ja| F[Kreis-Ende]
+    F --o G[Kreuz-Ende]
+    G --x H[Beide Richtungen]
+    H <--> I[Ende]</pre>
+      </div>
+      <p>Mehr Bindestriche machen einen Pfeil länger, etwa <code>A ---> B</code>. Das hilft, wenn das Layout zu eng
+        wird.</p>
+    </section>
+
+    <section id="farben" class="card">
+      <h2>Farben</h2>
+      <p><strong>Einen Knoten färben:</strong> Schreib eine eigene Zeile mit <code>style</code>, der ID und den
+        Farben. <code>fill</code> ist die Füllung, <code>stroke</code> der Rand, <code>color</code> die Schrift.</p>
+      <div class="example">
+        <pre class="example-code">flowchart LR
+    A[Probe in Ordnung] --> B[Probe hämolytisch]
+    style A fill:#d1fae5,stroke:#059669,color:#064e3b
+    style B fill:#fee2e2,stroke:#dc2626,stroke-width:3px</pre>
+      </div>
+      <p><strong>Mehrere Knoten gleich färben:</strong> Leg mit <code>classDef</code> eine Farbklasse an und häng sie
+        mit <code>:::</code> an die Knoten. So änderst du die Farbe später an einer Stelle.</p>
+      <div class="example">
+        <pre class="example-code">flowchart TD
+    A[Anforderung]:::station --> B[Abnahme]:::station
+    B --> C[Analyse]:::labor --> D[Befund]:::labor
+    classDef station fill:#dbeafe,stroke:#2563eb
+    classDef labor fill:#fef3c7,stroke:#d97706</pre>
+      </div>
+      <p><strong>Pfeile färben:</strong> <code>linkStyle</code> zählt die Pfeile in der Reihenfolge, in der sie im
+        Code stehen, ab 0.</p>
+      <div class="example">
+        <pre class="example-code">flowchart LR
+    A --> B --> C
+    linkStyle 0 stroke:#dc2626,stroke-width:3px
+    linkStyle 1 stroke:#2563eb,stroke-dasharray:5 5</pre>
+      </div>
+      <p>Farben gibst du als Hex-Wert wie <code>#2563eb</code> oder als englischen Namen wie <code>red</code> an.
+        Für das ganze Diagramm wählst du oben im Editor ein <strong>Theme</strong>, zum Beispiel
+        <strong>Neutral</strong> oder <strong>Dunkel</strong>. Eigene Farben überschreiben das Theme.</p>
+    </section>
+
+    <section id="gruppen" class="card">
+      <h2>Gruppen</h2>
+      <p>Mit <code>subgraph</code> fasst du Knoten zu einem Rahmen mit Überschrift zusammen. <code>end</code> schließt
+        die Gruppe.</p>
+      <div class="example">
+        <pre class="example-code">flowchart LR
+    subgraph Station
+        A[Anforderung] --> B[Abnahme]
+    end
+    subgraph Labor
+        C[Eingang] --> D[Analyse]
+    end
+    B --> C</pre>
+      </div>
+    </section>
+
+    <section id="text" class="card">
+      <h2>Text und Sonderzeichen</h2>
+      <ul>
+        <li>Umlaute und Leerzeichen funktionieren direkt: <code>A[Hämolyse prüfen]</code>.</li>
+        <li>Klammern, Doppelpunkte oder Schrägstriche im Text setzt du in Anführungszeichen:
+          <code>A["Kalium (K+): 5,8 mmol/l"]</code>.</li>
+        <li>Ein Anführungszeichen im Text schreibst du als <code>#quot;</code>.</li>
+        <li>Einen Zeilenumbruch im Knoten erzeugst du mit <code>&lt;br&gt;</code>:
+          <code>A["Erste Zeile&lt;br&gt;zweite Zeile"]</code>.</li>
+        <li>Fett und kursiv gehen mit Backticks im Text: <code>A["`**fett** und *kursiv*`"]</code>.</li>
+        <li>Eine Zeile mit <code>%%</code> am Anfang ist ein Kommentar und erscheint nicht im Diagramm.</li>
+      </ul>
+      <div class="example">
+        <pre class="example-code">flowchart TD
+    %% Kommentar: wird nicht angezeigt
+    A["Kalium (K+): 5,8 mmol/l"] --> B["Wert prüfen&lt;br&gt;und melden"]
+    B --> C["`**kritisch** – sofort anrufen`"]</pre>
+      </div>
+    </section>
+
+    <section id="typen" class="card">
+      <h2>Andere Diagrammtypen</h2>
+      <p>Die erste Zeile wählt den Typ. Fertige Beispiele zu jedem Typ findest du im Editor unter
+        <strong>Vorlage</strong>.</p>
+      <h3>Ablauf zwischen Beteiligten: <code>sequenceDiagram</code></h3>
+      <div class="example">
+        <pre class="example-code">sequenceDiagram
+    Station->>Labor: Probe und Auftrag
+    Labor-->>Station: Befund
+    Note over Station,Labor: Kritischer Wert wird telefoniert</pre>
+      </div>
+      <h3>Zeitplan: <code>gantt</code></h3>
+      <div class="example">
+        <pre class="example-code">gantt
+    dateFormat YYYY-MM-DD
+    section Einführung
+    Validierung :a1, 2026-01-05, 14d
+    Schulung    :after a1, 5d</pre>
+      </div>
+      <h3>Anteile: <code>pie</code></h3>
+      <div class="example">
+        <pre class="example-code">pie title Probeneingang
+    "Station" : 60
+    "Ambulanz" : 30
+    "Extern" : 10</pre>
+      </div>
+      <h3>Gedanken sammeln: <code>mindmap</code></h3>
+      <div class="example">
+        <pre class="example-code">mindmap
+  root((Qualität))
+    Präanalytik
+    Analytik
+    Postanalytik</pre>
+      </div>
+      <p>Außerdem gibt es unter anderem <code>classDiagram</code>, <code>stateDiagram-v2</code>,
+        <code>erDiagram</code>, <code>timeline</code> und <code>gitGraph</code>.</p>
+    </section>
+
+    <section id="fehler" class="card">
+      <h2>Häufige Fehler</h2>
+      <p>Bei einem Fehler zeigt der Editor unter dem Code eine rote Meldung mit der Zeilennummer. Das zuletzt
+        funktionierende Diagramm bleibt blass stehen.</p>
+      <ul>
+        <li><strong><code>end</code> als Knotentext:</strong> Kleingeschrieben beendet es eine Gruppe. Schreib
+          <code>Ende</code> oder <code>End</code>.</li>
+        <li><strong>Knoten, deren ID mit o oder x beginnt:</strong> <code>A---oB</code> wird zum Kreis-Ende. Setz ein
+          Leerzeichen: <code>A --- oB</code>.</li>
+        <li><strong>Sonderzeichen ohne Anführungszeichen:</strong> Bei <code>A[Wert (mmol/l)]</code> stolpert die
+          Klammer. Richtig ist <code>A["Wert (mmol/l)"]</code>.</li>
+        <li><strong>Kommentar hinter Code:</strong> <code>%%</code> muss am Zeilenanfang stehen.</li>
+        <li><strong>Leerzeichen in der ID:</strong> Die ID ist ein Wort ohne Leerzeichen. Den langen Text schreibst du
+          in die Klammern.</li>
+      </ul>
+    </section>
+
+    <section id="bedienung" class="card">
+      <h2>Bedienung</h2>
+      <ul>
+        <li><kbd>Tab</kbd> rückt im Code ein. <kbd>Cmd</kbd>/<kbd>Strg</kbd> + <kbd>S</kbd> speichert.</li>
+        <li><strong>Speichern unter …</strong> legt eine Kopie an, auch von Diagrammen, die du nur lesen darfst.</li>
+        <li><strong>Teilen</strong> gibt ein Diagramm für andere Benutzer frei, zum Lesen oder Bearbeiten. Ein
+          öffentlicher Link zeigt es ohne Login, nur lesend.</li>
+        <li><strong>SVG</strong> und <strong>PNG</strong> laden das Bild herunter, etwa für Präsentationen.</li>
+        <li>Ungespeicherte Änderungen zeigt ein <strong>•</strong> hinter dem Namen. Der Entwurf bleibt auch nach dem
+          Neuladen erhalten.</li>
+        <li>Keine Patientendaten oder personenbezogenen Daten Dritter eintragen.</li>
+      </ul>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" role="status" hidden></div>
+
+  <footer class="footer">
+    Rendering: <a href="https://github.com/mermaid-js/mermaid" rel="noopener">mermaid</a>
+    (Open Source, MIT-Lizenz) ·
+    <a href="licenses">Lizenzen</a>
+  </footer>
+
+  <script src="vendor/mermaid/mermaid.min.js"></script>
+  <script src="js/common.js"></script>
+  <script src="js/help.js"></script>
+</body>
+</html>
