@@ -1,13 +1,13 @@
 # Third-party notices
 
-Flow's own code (`index.html`, `css/`, `js/`, `favicon.svg`) is original work. The only third-party code is the
-vendored mermaid bundle in `vendor/mermaid/`.
+Flow's own code (`app.py`, `flow_hash.py`, `static/index.html`, `static/css/`, `static/js/`, `static/favicon.svg`) is original work. The only third-party code is the
+vendored mermaid bundle in `static/vendor/mermaid/`. Python dependencies (Flask, Werkzeug, gunicorn) are installed via `uv` and not part of the repository.
 
 ## mermaid 12.1.0
 
-- File: `vendor/mermaid/mermaid.min.js` (unmodified, from the npm package `mermaid@12.1.0`)
+- File: `static/vendor/mermaid/mermaid.min.js` (unmodified, from the npm package `mermaid@12.1.0`)
 - SHA-256: `6484afc32872a3aa16cac9a76ba1816a1ed4cc870a6593cc2e17757750f518b2`
-- License: MIT, Copyright (c) 2014 - 2022 Knut Sveidqvist – full text in `vendor/mermaid/LICENSE`
+- License: MIT, Copyright (c) 2014 - 2022 Knut Sveidqvist – full text in `static/vendor/mermaid/LICENSE`
 - Source: https://github.com/mermaid-js/mermaid
 
 "Mermaid" is the name of the upstream open-source project. Flow is an independent app and is not affiliated with or

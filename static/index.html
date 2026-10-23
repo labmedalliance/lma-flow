@@ -35,8 +35,10 @@
 
     <span class="spacer"></span>
 
-    <button id="btn-save" type="button">Speichern</button>
+    <button id="btn-new" type="button">Neu</button>
     <button id="btn-open" type="button">Öffnen</button>
+    <button id="btn-save" type="button">Speichern</button>
+    <button id="btn-rename" type="button">Speichern unter …</button>
     <button id="btn-share" type="button">Link kopieren</button>
     <button id="btn-svg" type="button">SVG</button>
     <button id="btn-png" type="button">PNG</button>
@@ -70,7 +72,7 @@
 
   <dialog id="dlg-open">
     <h2>Gespeicherte Diagramme</h2>
-    <p class="hint">Die Diagramme liegen nur in diesem Browser.</p>
+    <p class="hint">Gespeichert am Server – auf jedem Gerät abrufbar.</p>
     <ul id="saved-list" class="saved-list"></ul>
     <form method="dialog"><button>Schließen</button></form>
   </dialog>
@@ -80,7 +82,7 @@
   <footer class="footer">
     Rendering: <a href="https://github.com/mermaid-js/mermaid" rel="noopener">mermaid</a>
     (Open Source, MIT-Lizenz) ·
-    <a href="THIRD_PARTY_NOTICES.md">Lizenzen</a>
+    <a href="licenses">Lizenzen</a>
   </footer>
 
   <script src="vendor/mermaid/mermaid.min.js"></script>
