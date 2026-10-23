@@ -15,30 +15,43 @@ Configuration (environment variables or ``.env`` next to this file):
 ``FLOW_DB``          SQLite file, default ``instance/flow.db``
 ``FLOW_BASE_PATH``   URL prefix the app is served under, default ``/``
 ``FLOW_DEV=1``       local development: allows the session cookie over plain HTTP
+``FLOW_PROXY_HOPS``  number of trusted reverse proxies in front (Uberspace: 1), for the client IP
 
 Create the first admin with ``flask --app app create-user <name> --admin``.
 """
 
 import os
+import posixpath
 import secrets
 import sqlite3
+import threading
+import time
 from datetime import datetime, timedelta, timezone
 from functools import wraps
 from pathlib import Path
 
 import click
 from flask import Flask, abort, g, jsonify, redirect, request, send_from_directory, session
+from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import check_password_hash, generate_password_hash
 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
 HTML_PAGES = {"index.html", "login.html", "admin.html", "view.html"}
 
-MAX_CODE_CHARS = 200_000
+MAX_CODE_CHARS = 50_000  # mermaid's default maxTextSize – longer code would not render anyway
 MAX_NAME_CHARS = 200
 MIN_PASSWORD_CHARS = 10
-MAX_FAILED_LOGINS = 10
+MAX_FAILED_LOGINS = 50  # per account – high, so nobody can lock others out easily
+MAX_IP_FAILURES = 10  # per client IP and window
 LOCK_MINUTES = 15
+LOGIN_FAILED = "Anmeldung fehlgeschlagen. Prüfe Benutzername und Passwort. Nach vielen Fehlversuchen ist die Anmeldung für 15 Minuten gesperrt."
+# Mermaid needs inline styles; no inline scripts anywhere. img-src blocks external (tracking) images in diagrams.
+CSP = (
+    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; "
+    "connect-src 'self'; font-src 'self' data:; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; "
+    "form-action 'self'; frame-ancestors 'none'"
+)
 THEMES = {"default", "neutral", "forest", "dark", "base"}
 LOOKS = {"classic", "handDrawn"}
 ROLES = {"view", "edit"}
@@ -96,7 +109,31 @@ def connect(db_path):
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
+    conn.execute("PRAGMA secure_delete = ON")  # overwrite deleted diagrams in the file
     return conn
+
+
+class IpThrottle:
+    """Counts failed logins per client IP in memory (per worker process, reset on restart)."""
+
+    def __init__(self, limit, window_seconds):
+        self.limit, self.window = limit, window_seconds
+        self.failures = {}
+        self.lock = threading.Lock()
+
+    def _recent(self, ip, now_ts):
+        return [t for t in self.failures.get(ip, []) if now_ts - t < self.window]
+
+    def blocked(self, ip):
+        with self.lock:
+            recent = self._recent(ip, time.monotonic())
+            self.failures[ip] = recent
+            return len(recent) >= self.limit
+
+    def fail(self, ip):
+        with self.lock:
+            now_ts = time.monotonic()
+            self.failures[ip] = self._recent(ip, now_ts) + [now_ts]
 
 
 def create_app(config=None):
@@ -120,6 +157,11 @@ def create_app(config=None):
         raise RuntimeError("FLOW_SECRET_KEY is not set (see README).")
     base = app.config["BASE_PATH"].rstrip("/") + "/"
     app.config["SESSION_COOKIE_PATH"] = base
+    hops = int(os.environ.get("FLOW_PROXY_HOPS", "0"))
+    if hops:
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=hops)
+    throttle = IpThrottle(MAX_IP_FAILURES, LOCK_MINUTES * 60)
+    dummy_hash = generate_password_hash(secrets.token_urlsafe(16))  # equal timing for unknown users
 
     Path(app.config["DB"]).parent.mkdir(parents=True, exist_ok=True)
     with connect(app.config["DB"]) as conn:
@@ -183,6 +225,7 @@ def create_app(config=None):
         resp.headers.setdefault("Referrer-Policy", "no-referrer")
         resp.headers.setdefault("X-Frame-Options", "DENY")
         resp.headers.setdefault("X-Robots-Tag", "noindex, nofollow")
+        resp.headers.setdefault("Content-Security-Policy", CSP)
         if request.path.startswith("/api/"):
             resp.headers.setdefault("Cache-Control", "no-store")
         return resp
@@ -295,7 +338,7 @@ def create_app(config=None):
 
     @app.get("/<path:filename>")
     def static_files(filename):
-        if filename in HTML_PAGES:
+        if posixpath.basename(posixpath.normpath(filename)) in HTML_PAGES:
             abort(404)  # pages only via their routes, with <base> filled in
         return send_from_directory(STATIC_DIR, filename)
 
@@ -306,24 +349,30 @@ def create_app(config=None):
         data = body()
         username = str(data.get("username", "")).strip()
         password = str(data.get("password", ""))
+        # Behind a proxy without X-Forwarded-For all clients share one address – then skip the IP limit
+        # rather than let one attacker lock everybody out. The per-account lock still applies.
+        ip = None if hops and "X-Forwarded-For" not in request.headers else request.remote_addr
+        if ip and throttle.blocked(ip):
+            abort(401, LOGIN_FAILED)
         conn = db()
         user = conn.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
-        if user and user["locked_until"] and user["locked_until"] > now():
-            abort(401, "Zu viele Fehlversuche. Bitte später erneut versuchen.")
-        if not user or not check_password_hash(user["password_hash"], password):
-            if user:
-                failed = user["failed_logins"] + 1
-                locked = None
-                if failed >= MAX_FAILED_LOGINS:
-                    failed = 0
-                    locked = (datetime.now(timezone.utc) + timedelta(minutes=LOCK_MINUTES)).isoformat(
-                        timespec="seconds"
-                    )
+        # Always hash once, so response time does not tell whether the user exists.
+        password_ok = check_password_hash(user["password_hash"] if user else dummy_hash, password)
+        locked = bool(user and user["locked_until"] and user["locked_until"] > now())
+        if not password_ok or locked:
+            if ip:
+                throttle.fail(ip)
+            if user and not password_ok:
+                conn.execute("UPDATE users SET failed_logins = failed_logins + 1 WHERE id = ?", (user["id"],))
+                lock_until = (datetime.now(timezone.utc) + timedelta(minutes=LOCK_MINUTES)).isoformat(
+                    timespec="seconds"
+                )
                 conn.execute(
-                    "UPDATE users SET failed_logins = ?, locked_until = ? WHERE id = ?", (failed, locked, user["id"])
+                    "UPDATE users SET failed_logins = 0, locked_until = ? WHERE id = ? AND failed_logins >= ?",
+                    (lock_until, user["id"], MAX_FAILED_LOGINS),
                 )
                 conn.commit()
-            abort(401, "Benutzername oder Passwort falsch.")
+            abort(401, LOGIN_FAILED)  # same message for every failure reason
         conn.execute("UPDATE users SET failed_logins = 0, locked_until = NULL WHERE id = ?", (user["id"],))
         conn.commit()
         session.clear()
@@ -417,12 +466,15 @@ def create_app(config=None):
             # Someone else saved in between – hand back their version.
             return jsonify(error="conflict", current=diagram_json(row, role)), 409
         conn = db()
-        conn.execute(
+        cur = conn.execute(
             "UPDATE diagrams SET name = ?, code = ?, theme = ?, look = ?, version = version + 1,"
             " updated = ?, updated_by = ? WHERE id = ? AND version = ?",
             (d["name"], d["code"], d["theme"], d["look"], now(), current_user()["id"], diagram_id, row["version"]),
         )
         conn.commit()
+        if cur.rowcount == 0:
+            # A parallel save won the race between the check above and this update.
+            return jsonify(error="conflict", current=diagram_json(*load_diagram(diagram_id))), 409
         return jsonify(diagram_json(*load_diagram(diagram_id)))
 
     @app.delete("/api/diagrams/<int:diagram_id>")

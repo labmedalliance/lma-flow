@@ -428,6 +428,9 @@
   async function logout() {
     if (!confirmDiscard()) return;
     await api("api/logout", "POST", {}).catch(() => null);
+    try {
+      localStorage.removeItem(STORE_CURRENT); // no diagram content left on shared computers
+    } catch (e) { /* storage blocked – nothing stored either */ }
     location.href = "login";
   }
 
