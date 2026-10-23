@@ -1,5 +1,6 @@
 """API tests: accounts, permissions, sharing, conflicts, public links."""
 
+import secrets
 import sqlite3
 
 import pytest
@@ -8,7 +9,9 @@ from werkzeug.security import generate_password_hash
 from app import create_app
 
 DIAGRAM = {"name": "Präanalytik", "code": "flowchart TD\n A --> B", "theme": "default", "look": "classic"}
-PASSWORD = "richtig-langes-pw"
+# Generated per run, so no credential-like literals end up in the repository.
+PASSWORD = secrets.token_urlsafe(16)
+OTHER_PASSWORD = secrets.token_urlsafe(16)
 
 
 @pytest.fixture
@@ -73,14 +76,14 @@ def test_pages_and_api_need_login(app):
 def test_wrong_password_and_lockout(app):
     client = app.test_client()
     for _ in range(10):
-        assert client.post("/api/login", json={"username": "ben", "password": "falsch"}).status_code == 401
+        assert client.post("/api/login", json={"username": "ben", "password": "x" * 12}).status_code == 401
     # Locked now – even the right password is refused for a while.
     assert client.post("/api/login", json={"username": "ben", "password": PASSWORD}).status_code == 401
 
 
 def test_password_change_ends_other_sessions(app):
     first, second = login(app, "ben"), login(app, "ben")
-    resp = first.put("/api/me/password", json={"old": PASSWORD, "new": "noch-ein-langes-pw"})
+    resp = first.put("/api/me/password", json={"old": PASSWORD, "new": OTHER_PASSWORD})
     assert resp.status_code == 200
     assert first.get("/api/me").status_code == 200
     assert second.get("/api/me").status_code == 401
@@ -178,13 +181,13 @@ def test_admin_only(ben):
 
 
 def test_admin_manages_users(app, anna):
-    assert anna.post("/api/admin/users", json={"username": "dora", "password": "kurz"}).status_code == 400
+    assert anna.post("/api/admin/users", json={"username": "dora", "password": "x" * 5}).status_code == 400
     assert anna.post("/api/admin/users", json={"username": "dora", "password": PASSWORD}).status_code == 201
     assert anna.post("/api/admin/users", json={"username": "DORA", "password": PASSWORD}).status_code == 409
     dora = login(app, "dora")
     dora_id = uid(dora)
     create(dora)
-    assert anna.put(f"/api/admin/users/{dora_id}/password", json={"password": "neues-langes-pw"}).status_code == 200
+    assert anna.put(f"/api/admin/users/{dora_id}/password", json={"password": OTHER_PASSWORD}).status_code == 200
     assert dora.get("/api/me").status_code == 401  # reset ends her sessions
     assert anna.delete(f"/api/admin/users/{dora_id}").status_code == 204
     assert anna.delete(f"/api/admin/users/{uid(anna)}").status_code == 400
