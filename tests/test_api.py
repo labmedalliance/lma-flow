@@ -255,3 +255,8 @@ def test_start_page_and_editor_routes(anna):
     old_link = anna.get("/?id=7")  # editor links from before the start page existed
     assert old_link.status_code == 302 and old_link.headers["Location"].endswith("/edit?id=7")
     assert anna.get("/?id=%C2%B2").status_code == 200  # non-ASCII digits: start page, no redirect
+
+
+def test_help_page_is_public(app):
+    resp = app.test_client().get("/help")
+    assert resp.status_code == 200 and b'src="js/help.js"' in resp.data

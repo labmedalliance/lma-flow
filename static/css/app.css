@@ -303,3 +303,62 @@ a.button.primary { background: var(--accent); border-color: var(--accent); color
 .empty-state p { margin: 0; }
 .table a { color: var(--accent); text-decoration: none; }
 .table a:hover { text-decoration: underline; }
+
+/* ---------- help page ---------- */
+
+.help .card h2 { margin-bottom: 8px; }
+.help .card h3 { margin: 18px 0 6px; font-size: 14px; }
+.help p, .help li { line-height: 1.55; }
+.help ul { padding-left: 20px; }
+.help code { font: 12.5px ui-monospace, "SF Mono", Menlo, Consolas, monospace; background: var(--bg); padding: 1px 4px;
+  border-radius: 4px; }
+kbd { font: 12px ui-monospace, Menlo, monospace; border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; }
+
+.toc { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.toc a { text-decoration: none; }
+.help section { scroll-margin-top: 12px; }
+
+.example {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+  margin: 10px 0 14px;
+}
+.example-code {
+  margin: 0;
+  padding: 10px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font: 12.5px/1.5 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  overflow-x: auto;
+}
+.example-preview, .shape-preview {
+  display: grid;
+  place-items: center;
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px;
+  overflow: hidden;
+  color: #66727f;
+  font-size: 12px;
+}
+.example-preview svg { max-width: 100% !important; max-height: 260px; width: auto !important; height: auto; }
+.example-actions { grid-column: 1 / -1; display: flex; gap: 8px; }
+
+.shape-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 190px), 1fr));
+  gap: 10px;
+  margin: 10px 0 16px;
+}
+.shape { margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.shape-preview { height: 96px; }
+.shape-preview svg { max-width: 100% !important; max-height: 80px; width: auto !important; height: auto; }
+.shape code { display: block; white-space: pre-wrap; overflow-wrap: anywhere; }
+.shape .example-actions button { padding: 2px 8px; font-size: 12px; }
+
+@media (max-width: 700px) {
+  .example { grid-template-columns: 1fr; }
+}
