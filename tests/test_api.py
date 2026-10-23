@@ -121,6 +121,8 @@ def test_static_files_do_not_expose_server_files(anna):
     assert b'<base href="/">' in anna.get("/").data
     assert anna.get("/css/../index.html").status_code == 404
     assert "img-src 'self' data: blob:" in anna.get("/").headers["Content-Security-Policy"]
+    assert "frame-ancestors 'self'" in anna.get("/").headers["Content-Security-Policy"]
+    assert anna.get("/").headers["X-Frame-Options"] == "SAMEORIGIN"
 
 
 # ---------- diagrams and permissions ----------
