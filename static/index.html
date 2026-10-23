@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <base href="{{BASE}}">
   <title>Flow – Diagramm-Editor</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="css/app.css">
@@ -38,10 +39,11 @@
     <button id="btn-new" type="button">Neu</button>
     <button id="btn-open" type="button">Öffnen</button>
     <button id="btn-save" type="button">Speichern</button>
-    <button id="btn-rename" type="button">Speichern unter …</button>
-    <button id="btn-share" type="button">Link kopieren</button>
+    <button id="btn-copy" type="button">Speichern unter …</button>
+    <button id="btn-share" type="button">Teilen</button>
     <button id="btn-svg" type="button">SVG</button>
     <button id="btn-png" type="button">PNG</button>
+    <button id="btn-user" type="button" class="user-btn"></button>
   </header>
 
   <main class="workspace">
@@ -71,9 +73,66 @@
   </main>
 
   <dialog id="dlg-open">
-    <h2>Gespeicherte Diagramme</h2>
-    <p class="hint">Gespeichert am Server – auf jedem Gerät abrufbar.</p>
-    <ul id="saved-list" class="saved-list"></ul>
+    <h2>Diagramme</h2>
+    <h3>Meine</h3>
+    <ul id="list-own" class="saved-list"></ul>
+    <h3>Mit mir geteilt</h3>
+    <ul id="list-shared" class="saved-list"></ul>
+    <form method="dialog"><button>Schließen</button></form>
+  </dialog>
+
+  <dialog id="dlg-share">
+    <h2>Teilen</h2>
+    <p class="hint">Nur du als Besitzer siehst diese Einstellungen.</p>
+    <h3>Personen</h3>
+    <ul id="access-list" class="saved-list"></ul>
+    <div id="share-add-row" class="row">
+      <select id="share-user" aria-label="Person"></select>
+      <select id="share-role" aria-label="Recht">
+        <option value="view">Lesen</option>
+        <option value="edit">Bearbeiten</option>
+      </select>
+      <button id="share-add" type="button">Hinzufügen</button>
+    </div>
+    <h3>Öffentlicher Link</h3>
+    <p class="hint">Jeder mit dem Link sieht das Diagramm – ohne Login, nur lesend.</p>
+    <div id="public-off" class="row">
+      <button id="public-create" type="button">Link erstellen</button>
+    </div>
+    <div id="public-on" class="row" hidden>
+      <input id="public-url" type="text" readonly aria-label="Öffentlicher Link">
+      <button id="public-copy" type="button">Kopieren</button>
+      <button id="public-revoke" type="button">Deaktivieren</button>
+    </div>
+    <form method="dialog"><button>Schließen</button></form>
+  </dialog>
+
+  <dialog id="dlg-conflict">
+    <h2>Inzwischen geändert</h2>
+    <p id="conflict-text"></p>
+    <div class="row">
+      <button id="conflict-overwrite" type="button">Meine Fassung speichern</button>
+      <button id="conflict-load" type="button">Neue Fassung laden</button>
+      <button id="conflict-copy" type="button">Als Kopie speichern</button>
+    </div>
+    <form method="dialog"><button>Abbrechen</button></form>
+  </dialog>
+
+  <dialog id="dlg-user">
+    <h2 id="user-name"></h2>
+    <h3>Passwort ändern</h3>
+    <form id="pw-form" class="stack">
+      <input id="pw-user" type="text" autocomplete="username" hidden>
+      <input id="pw-old" type="password" placeholder="Bisheriges Passwort" autocomplete="current-password" required>
+      <input id="pw-new" type="password" placeholder="Neues Passwort (mind. 10 Zeichen)"
+             autocomplete="new-password" minlength="10" required>
+      <button type="submit">Passwort ändern</button>
+    </form>
+    <div class="row">
+      <a id="admin-link" href="admin" hidden>Benutzer verwalten</a>
+      <span class="spacer"></span>
+      <button id="btn-logout" type="button">Abmelden</button>
+    </div>
     <form method="dialog"><button>Schließen</button></form>
   </dialog>
 
@@ -86,6 +145,7 @@
   </footer>
 
   <script src="vendor/mermaid/mermaid.min.js"></script>
+  <script src="js/common.js"></script>
   <script src="js/examples.js"></script>
   <script src="js/app.js"></script>
 </body>

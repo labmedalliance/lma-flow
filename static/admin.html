@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <base href="{{BASE}}">
+  <title>Benutzer – Flow</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body class="page">
+  <header class="topbar">
+    <span class="brand">Flow</span>
+    <span>Benutzer verwalten</span>
+    <span class="spacer"></span>
+    <a href="./">Zurück zum Editor</a>
+  </header>
+
+  <main class="content">
+    <section class="card">
+      <h2>Neuer Benutzer</h2>
+      <form id="create-form" class="row">
+        <input id="new-username" type="text" placeholder="Benutzername" required maxlength="64">
+        <input id="new-password" type="text" placeholder="Startpasswort (mind. 10 Zeichen)" required minlength="10">
+        <label class="field"><input id="new-admin" type="checkbox"> Admin</label>
+        <button type="submit" class="primary">Anlegen</button>
+      </form>
+      <p class="hint">Gib das Startpasswort persönlich weiter. Die Person kann es danach selbst ändern.</p>
+    </section>
+
+    <section class="card">
+      <h2>Benutzer</h2>
+      <table class="table">
+        <thead><tr><th>Name</th><th>Rolle</th><th>Diagramme</th><th>Seit</th><th></th></tr></thead>
+        <tbody id="user-rows"></tbody>
+      </table>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" role="status" hidden></div>
+  <script src="js/common.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>

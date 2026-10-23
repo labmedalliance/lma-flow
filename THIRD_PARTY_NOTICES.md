@@ -1,7 +1,7 @@
 # Third-party notices
 
-Flow's own code (`app.py`, `flow_hash.py`, `static/index.html`, `static/css/`, `static/js/`, `static/favicon.svg`) is original work. The only third-party code is the
-vendored mermaid bundle in `static/vendor/mermaid/`. Python dependencies (Flask, Werkzeug, gunicorn) are installed via `uv` and not part of the repository.
+Flow's own code (`app.py`, `static/*.html`, `static/css/`, `static/js/`, `static/favicon.svg`) is original work. The only third-party code is the
+vendored mermaid bundle in `static/vendor/mermaid/`. Python dependencies (Flask, Werkzeug, click, gunicorn) are installed via `uv` and not part of the repository.
 
 ## mermaid 12.1.0
 

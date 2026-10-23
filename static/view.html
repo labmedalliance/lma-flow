@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <base href="{{BASE}}">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Diagramm – Flow</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <span class="brand">Flow</span>
+    <span id="view-title" class="doc-title"></span>
+    <span class="spacer"></span>
+    <span class="zoom">
+      <button id="zoom-out" type="button" aria-label="Verkleinern">−</button>
+      <button id="zoom-fit" type="button">Einpassen</button>
+      <button id="zoom-in" type="button" aria-label="Vergrößern">+</button>
+    </span>
+  </header>
+  <main class="viewer">
+    <div id="viewport" class="viewport">
+      <div id="preview" class="preview"></div>
+    </div>
+    <p id="view-error" class="view-error" hidden></p>
+  </main>
+  <footer class="footer">Nur lesend freigegeben.</footer>
+  <script src="vendor/mermaid/mermaid.min.js"></script>
+  <script src="js/common.js"></script>
+  <script src="js/view.js"></script>
+</body>
+</html>
