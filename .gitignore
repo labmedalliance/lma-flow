@@ -2,3 +2,10 @@
 .DS_Store
 node_modules/
 *.tgz
+instance/
+*.db
+*.sqlite3
+.env
+.venv/
+__pycache__/
+.pytest_cache/

@@ -1,0 +1,20 @@
+[project]
+name = "lma-flow"
+version = "0.2.0"
+description = "Self-hosted diagram editor with SQLite storage"
+requires-python = ">=3.11"
+dependencies = [
+    "flask>=3.1.3",
+    "gunicorn>=26.2.0",
+]
+
+[tool.uv]
+package = false
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]

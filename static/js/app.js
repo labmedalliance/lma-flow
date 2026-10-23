@@ -4,13 +4,14 @@
  * Text on the left, live preview on the right. Rendering is done by the
  * open-source mermaid library (MIT, vendored in vendor/mermaid/). Everything
  * else – UI, storage, export, share links – is this app's own code.
- * Nothing leaves the browser: drafts and saved diagrams live in localStorage.
+ * Saved diagrams live on the server (SQLite, see app.py); the unsaved draft
+ * is kept in localStorage so a reload loses nothing.
  */
 (function () {
   "use strict";
 
   const STORE_CURRENT = "flow.current";
-  const STORE_SAVED = "flow.saved";
+  const API = "api/diagrams";
   const RENDER_DELAY_MS = 300;
 
   const $ = (id) => document.getElementById(id);
@@ -210,37 +211,63 @@
     img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(markup);
   }
 
-  // ---------- saved diagrams ----------
+  // ---------- saved diagrams (server) ----------
 
-  function saveDiagram() {
-    let name = doc.name;
-    if (!doc.id) {
-      name = window.prompt("Name des Diagramms:", name || "Neues Diagramm");
-      if (!name) return;
+  /** Small fetch wrapper for the JSON API. Throws on HTTP errors. */
+  async function api(path, method, body) {
+    const opts = { method: method || "GET", headers: {} };
+    if (body !== undefined) {
+      opts.headers["Content-Type"] = "application/json";
+      opts.body = JSON.stringify(body);
     }
-    const saved = readStore(STORE_SAVED, []);
-    const entry = {
-      id: doc.id || String(Date.now()),
-      name: name.trim(),
-      code: doc.code,
-      theme: doc.theme,
-      look: doc.look,
-      updated: new Date().toISOString(),
-    };
-    const idx = saved.findIndex((s) => s.id === entry.id);
-    if (idx >= 0) saved[idx] = entry; else saved.unshift(entry);
-    if (!writeStore(STORE_SAVED, saved)) return toast("Speichern im Browser nicht möglich.");
-    doc.id = entry.id;
-    doc.name = entry.name;
-    persistCurrent();
-    updateTitle();
-    toast("Gespeichert: " + entry.name);
+    const resp = await fetch(path, opts);
+    if (!resp.ok) throw new Error("HTTP " + resp.status);
+    return resp.status === 204 ? null : resp.json();
   }
 
-  function openDialog() {
+  async function saveDiagram(askName) {
+    let name = doc.name;
+    if (!doc.id || askName) {
+      name = window.prompt("Name des Diagramms:", name || "Neues Diagramm");
+      if (!name || !name.trim()) return;
+    }
+    const body = { name: name.trim(), code: doc.code, theme: doc.theme, look: doc.look };
+    try {
+      // "Speichern unter" (askName) always creates a new copy.
+      const saved = doc.id && !askName
+        ? await api(API + "/" + doc.id, "PUT", body)
+        : await api(API, "POST", body);
+      doc.id = saved.id;
+      doc.name = saved.name;
+      doc.dirty = false;
+      persistCurrent();
+      updateTitle();
+      toast("Gespeichert: " + saved.name);
+    } catch (e) {
+      toast("Speichern fehlgeschlagen (" + e.message + ").");
+    }
+  }
+
+  async function openSaved(id) {
+    try {
+      const d = await api(API + "/" + id);
+      loadDoc({ id: d.id, name: d.name, code: d.code, theme: d.theme, look: d.look });
+      return true;
+    } catch (e) {
+      toast("Diagramm nicht gefunden.");
+      return false;
+    }
+  }
+
+  async function openDialog() {
     const list = $("saved-list");
+    let saved;
+    try {
+      saved = await api(API);
+    } catch (e) {
+      return toast("Liste konnte nicht geladen werden (" + e.message + ").");
+    }
     list.innerHTML = "";
-    const saved = readStore(STORE_SAVED, []);
     if (!saved.length) {
       const li = document.createElement("li");
       li.textContent = "Noch nichts gespeichert.";
@@ -251,25 +278,35 @@
       const open = document.createElement("button");
       open.className = "name";
       open.textContent = entry.name;
-      open.addEventListener("click", () => {
-        loadDoc({ ...entry });
-        $("dlg-open").close();
+      open.addEventListener("click", async () => {
+        if (doc.dirty && !window.confirm("Ungespeicherte Änderungen verwerfen?")) return;
+        if (await openSaved(entry.id)) $("dlg-open").close();
       });
       const date = document.createElement("span");
       date.className = "date";
       date.textContent = new Date(entry.updated).toLocaleDateString("de-AT");
       const del = document.createElement("button");
       del.textContent = "Löschen";
-      del.addEventListener("click", () => {
+      del.addEventListener("click", async () => {
         if (!window.confirm("„" + entry.name + "“ löschen?")) return;
-        writeStore(STORE_SAVED, readStore(STORE_SAVED, []).filter((s) => s.id !== entry.id));
-        if (doc.id === entry.id) { doc.id = null; persistCurrent(); updateTitle(); }
+        try {
+          await api(API + "/" + entry.id, "DELETE");
+        } catch (e) {
+          return toast("Löschen fehlgeschlagen (" + e.message + ").");
+        }
+        if (doc.id === entry.id) { doc.id = null; doc.dirty = true; persistCurrent(); updateTitle(); }
         openDialog();
       });
       li.append(open, date, del);
       list.appendChild(li);
     });
     if (!$("dlg-open").open) $("dlg-open").showModal();
+  }
+
+  function newDiagram() {
+    if (doc.dirty && doc.code.trim() && !window.confirm("Ungespeicherte Änderungen verwerfen?")) return;
+    loadDoc({ code: "", theme: doc.theme, look: doc.look });
+    codeEl.focus();
   }
 
   async function copyShareLink() {
@@ -286,7 +323,7 @@
   // ---------- state ----------
 
   function loadDoc(next) {
-    doc = { id: null, name: "", theme: "default", look: "classic", ...next };
+    doc = { id: null, name: "", theme: "default", look: "classic", dirty: false, ...next };
     codeEl.value = doc.code;
     themeEl.value = doc.theme;
     lookEl.value = doc.look;
@@ -296,12 +333,24 @@
     render();
   }
 
+  /** Mark the diagram as changed and keep the draft safe in the browser. */
+  function touch() {
+    doc.dirty = true;
+    persistCurrent();
+    updateTitle();
+  }
+
   function persistCurrent() {
     writeStore(STORE_CURRENT, doc);
   }
 
+  /** Title shows the saved name (• = unsaved changes); the URL ?id=… reopens it later. */
   function updateTitle() {
-    titleEl.textContent = doc.id ? doc.name : "";
+    const name = doc.id ? doc.name : "Neues Diagramm";
+    titleEl.textContent = name + (doc.dirty ? " •" : "");
+    document.title = name + " – Flow";
+    const url = location.pathname + (doc.id ? "?id=" + doc.id : "");
+    if (url !== location.pathname + location.search) history.replaceState(null, "", url);
   }
 
   let toastTimer = null;
@@ -318,7 +367,7 @@
   function bindEvents() {
     codeEl.addEventListener("input", () => {
       doc.code = codeEl.value;
-      persistCurrent();
+      touch();
       scheduleRender();
     });
 
@@ -334,12 +383,16 @@
     document.addEventListener("keydown", (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") {
         e.preventDefault();
-        saveDiagram();
+        saveDiagram(false);
       }
     });
 
-    themeEl.addEventListener("change", () => { doc.theme = themeEl.value; persistCurrent(); render(); });
-    lookEl.addEventListener("change", () => { doc.look = lookEl.value; persistCurrent(); render(); });
+    window.addEventListener("beforeunload", (e) => {
+      if (doc.dirty && doc.id) e.preventDefault();
+    });
+
+    themeEl.addEventListener("change", () => { doc.theme = themeEl.value; touch(); render(); });
+    lookEl.addEventListener("change", () => { doc.look = lookEl.value; touch(); render(); });
 
     exampleEl.addEventListener("change", () => {
       const ex = window.FLOW_EXAMPLES[exampleEl.value];
@@ -349,7 +402,9 @@
       loadDoc({ code: ex.code, theme: doc.theme, look: doc.look });
     });
 
-    $("btn-save").addEventListener("click", saveDiagram);
+    $("btn-new").addEventListener("click", newDiagram);
+    $("btn-save").addEventListener("click", () => saveDiagram(false));
+    $("btn-rename").addEventListener("click", () => saveDiagram(true));
     $("btn-open").addEventListener("click", openDialog);
     $("btn-share").addEventListener("click", copyShareLink);
     $("btn-svg").addEventListener("click", exportSvg);
@@ -371,19 +426,27 @@
     fillExamples();
     bindEvents();
 
-    // Priority: share link in the URL > last draft > first template.
+    // Priority: share link > ?id= (saved diagram) > last draft > first template.
     const match = location.hash.match(/^#d=(.+)$/);
     if (match) {
       try {
         const data = await decodeShare(match[1]);
-        history.replaceState(null, "", location.pathname + location.search);
-        loadDoc({ code: data.c || "", theme: data.t || "default", look: data.l || "classic" });
+        loadDoc({ code: data.c || "", theme: data.t || "default", look: data.l || "classic", dirty: true });
         return;
       } catch (e) {
         toast("Der Link ist ungültig.");
       }
     }
     const draft = readStore(STORE_CURRENT, null);
+    const idParam = new URLSearchParams(location.search).get("id");
+    if (idParam) {
+      // An unsaved draft of this very diagram wins over the server copy.
+      if (draft && String(draft.id) === idParam && draft.dirty) {
+        loadDoc(draft);
+        return;
+      }
+      if (await openSaved(idParam)) return;
+    }
     if (draft && typeof draft.code === "string") {
       loadDoc(draft);
     } else {
