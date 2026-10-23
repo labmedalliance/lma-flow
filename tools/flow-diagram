@@ -6,6 +6,7 @@ Reads URL and login from ~/.config/flow/credentials (must be mode 600):
     FLOW_URL=https://craft.cadamu.ro/flow/
     FLOW_USER=claude
     FLOW_PASSWORD=...
+    FLOW_SHARE_WITH=janne:edit     # optional: share every new diagram (user:view|edit, comma-separated)
 
 The password never appears on the command line or in the output. Values are stripped of
 surrounding whitespace; quotes are not removed.
@@ -79,6 +80,7 @@ class Client:
     def __init__(self, creds):
         self.base = creds["FLOW_URL"]
         self.user = creds["FLOW_USER"]
+        self.share_with = creds.get("FLOW_SHARE_WITH", "")
         self.opener = urllib.request.build_opener(
             HttpsOnlyRedirects(), urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar())
         )
@@ -113,7 +115,7 @@ class Client:
         fail(f"unknown user: {username}")
 
     def editor_url(self, diagram_id):
-        return f"{self.base}?id={diagram_id}"
+        return f"{self.base}edit?id={diagram_id}"
 
 
 def read_code(source):
@@ -161,8 +163,19 @@ def main():
         print(f"version {d['version']} · last saved by {d['updated_by']} · role {d['role']}", file=sys.stderr)
         print(d["code"])
     elif args.cmd == "create":
+        shares = []
+        for entry in filter(None, (e.strip() for e in client.share_with.split(","))):
+            user, _, role = entry.partition(":")
+            if (role or "view") not in ("view", "edit"):
+                fail(f"FLOW_SHARE_WITH: unknown role '{role}' for {user} – use view or edit")
+            shares.append((user, role or "view"))
         body = {"name": args.name, "code": read_code(args.file), "theme": args.theme, "look": args.look}
-        print(client.editor_url(client.call(api, "POST", body)["id"]))
+        new_id = client.call(api, "POST", body)["id"]
+        print(f"created {client.editor_url(new_id)}", file=sys.stderr)  # known even if sharing fails below
+        # Diagrams are private by default – share them right away, so the person sees them in Flow.
+        for user, role in shares:
+            client.call(f"{api}/{new_id}/access/{client.user_id(user)}", "PUT", {"role": role})
+        print(client.editor_url(new_id))
     elif args.cmd == "update":
         current = client.call(f"{api}/{args.id}")
         if args.version is None:

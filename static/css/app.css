@@ -251,3 +251,55 @@ dialog h3 { margin: 14px 0 6px; font-size: 13px; color: var(--muted); font-weigh
 @media (max-width: 600px) {
   .table th:nth-child(4), .table td:nth-child(4) { display: none; }
 }
+
+/* ---------- start page ---------- */
+
+a.brand { text-decoration: none; }
+.muted { color: var(--muted); font-size: 13px; }
+
+a.button {
+  display: inline-block;
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  text-decoration: none;
+}
+a.button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+
+.section-title { margin: 8px 0 10px; font-size: 15px; }
+
+.recent-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
+  gap: 16px;
+}
+
+.recent-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--text);
+  text-decoration: none;
+  transition: border-color .15s ease, transform .15s ease;
+}
+.recent-card:hover, .recent-card:focus-visible { border-color: var(--accent); transform: translateY(-2px); outline: none; }
+
+.recent-preview {
+  height: 150px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: #ffffff;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  padding: 8px;
+}
+.recent-preview svg { max-width: 100% !important; max-height: 134px; width: auto !important; height: auto; }
+.recent-preview.no-preview { color: #66727f; font-size: 13px; }
+.recent-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.empty-state { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
+.empty-state p { margin: 0; }
+.table a { color: var(--accent); text-decoration: none; }
+.table a:hover { text-decoration: underline; }

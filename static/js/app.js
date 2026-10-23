@@ -555,10 +555,16 @@
     fillExamples();
     bindEvents();
 
-    // Priority: ?id= (saved diagram) > last draft of this user > first template.
+    // Priority: ?new=1 (blank) > ?id= (saved diagram) > last draft of this user > first template.
     let draft = readDraft();
     if (draft && draft.user !== me.id) draft = null; // never show another user's draft
-    const idParam = new URLSearchParams(location.search).get("id");
+    const params = new URLSearchParams(location.search);
+    if (params.get("new")) {
+      const keepDraft = draft && draft.dirty && draft.code.trim()
+        && !window.confirm("Es gibt einen ungespeicherten Entwurf. Verwerfen und neu beginnen?");
+      return keepDraft ? loadDoc(draft) : loadDoc({});
+    }
+    const idParam = params.get("id");
     if (idParam) {
       // An unsaved draft of this very diagram wins over the server copy.
       if (draft && String(draft.id) === idParam && draft.dirty) return loadDoc(draft);

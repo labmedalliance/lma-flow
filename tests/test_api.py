@@ -70,6 +70,7 @@ def test_pages_and_api_need_login(app):
     client = app.test_client()
     assert client.get("/api/diagrams").status_code == 401
     assert client.get("/").status_code == 302
+    assert client.get("/edit").status_code == 302
     assert client.get("/login").status_code == 200
 
 
@@ -245,3 +246,12 @@ def test_proxy_without_forwarded_for_skips_ip_limit(tmp_path, monkeypatch):
     assert client.post("/api/login", json={"username": "ben", "password": PASSWORD}, headers=hdr).status_code == 401
     other = {"X-Forwarded-For": "203.0.113.8"}
     assert client.post("/api/login", json={"username": "ben", "password": PASSWORD}, headers=other).status_code == 200
+
+
+def test_start_page_and_editor_routes(anna):
+    assert b'src="js/home.js"' in anna.get("/").data
+    assert b'src="js/app.js"' in anna.get("/edit").data
+    assert anna.get("/home.html").status_code == 404
+    old_link = anna.get("/?id=7")  # editor links from before the start page existed
+    assert old_link.status_code == 302 and old_link.headers["Location"].endswith("/edit?id=7")
+    assert anna.get("/?id=%C2%B2").status_code == 200  # non-ASCII digits: start page, no redirect
