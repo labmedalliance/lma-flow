@@ -71,6 +71,7 @@
     if (!code.trim()) {
       previewEl.innerHTML = "";
       showError("");
+      announce(null);
       return;
     }
     try {
@@ -81,16 +82,23 @@
       previewEl.classList.remove("stale");
       showError("");
       applyZoom();
+      announce(code);
     } catch (err) {
       if (seq !== renderSeq) return;
       // Keep the last good diagram visible, but dimmed.
       previewEl.classList.add("stale");
       showError(String((err && err.message) || err));
+      announce(null);
     } finally {
       // mermaid leaves a temporary container behind when rendering fails
       const leftover = document.getElementById("dflow-svg-" + seq);
       if (leftover) leftover.remove();
     }
+  }
+
+  /** Tells visual.js that the preview changed (code = rendered code, null = no valid diagram). */
+  function announce(code) {
+    document.dispatchEvent(new CustomEvent("flow:rendered", { detail: { code } }));
   }
 
   function showError(message) {
@@ -442,6 +450,7 @@
 
   function loadDoc(fields) {
     doc = blankDoc(fields);
+    document.dispatchEvent(new CustomEvent("flow:loaded"));
     codeEl.value = doc.code;
     themeEl.value = doc.theme;
     lookEl.value = doc.look;
@@ -581,6 +590,20 @@
     if (draft && typeof draft.code === "string") return loadDoc(draft);
     loadDoc({ code: window.FLOW_EXAMPLES[0].code });
   }
+
+  // Interface for visual.js (mouse editing): read the diagram, write new code.
+  window.FlowApp = {
+    getCode: () => doc.code,
+    isEditable: () => doc.role !== "view",
+    /** Replaces the code (as if typed) and renders right away. */
+    setCode(code) {
+      codeEl.value = code;
+      doc.code = code;
+      touch();
+      clearTimeout(renderTimer);
+      return render();
+    },
+  };
 
   start();
 })();

@@ -12,6 +12,9 @@ public mermaid live editor, but with its own UI, accounts, sharing and server-si
 - Public read-only link (`v/<token>`) for people without an account, can be switched off again
 - Editing by turns: if someone else saved in the meantime, Flow warns instead of overwriting
 - Each saved diagram has its own URL (`?id=<n>`); the unsaved draft survives a reload; `Cmd/Ctrl+S` saves
+- Flowcharts can be edited with the mouse: drag shapes in, click nodes/arrows to change text, shape and colors, drag
+  arrows between nodes, delete, undo/redo. Every action rewrites the Mermaid code (see `static/js/flowedit.js`)
+- Help page (`help`) with shapes, colors and live examples
 - Export as SVG or PNG (2x)
 
 ## How it works
@@ -28,6 +31,7 @@ Third-party licenses: `THIRD_PARTY_NOTICES.md`.
 | Editor | `static/index.html`, `static/js/app.js` |
 | Login, admin, public view | `static/login.html`, `static/admin.html`, `static/view.html` + `static/js/*.js` |
 | Templates | `static/js/examples.js` |
+| Mouse editing: text edits / UI | `static/js/flowedit.js` (pure, tested with Node) / `static/js/visual.js` |
 
 Roles per diagram: owner (everything, sharing, delete), edit, view. Saving sends the diagram's `version`; a stale
 version gets HTTP 409 and the editor offers: save mine, load theirs, or save as copy.
@@ -59,6 +63,7 @@ export FLOW_SECRET_KEY=dev FLOW_DEV=1
 uv run flask --app app create-user me --admin
 uv run python app.py                     # http://127.0.0.1:5190/
 uv run pytest
+node --test tests/js/flowedit.test.js   # text-edit module
 ```
 
 ## Deploy (umbriel, craft.cadamu.ro/flow/)

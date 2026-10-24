@@ -362,3 +362,101 @@ kbd { font: 12px ui-monospace, Menlo, monospace; border: 1px solid var(--border)
 @media (max-width: 700px) {
   .example { grid-template-columns: 1fr; }
 }
+
+/* ---------- mouse editing ---------- */
+
+.pane-view { position: relative; }
+.visual-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+}
+.palette { display: flex; flex-wrap: wrap; gap: 4px; }
+.pal { padding: 3px 5px; line-height: 0; cursor: grab; }
+.pal svg { width: 28px; height: 20px; fill: #eef2ff; stroke: #6366f1; stroke-width: 1.4; }
+.visual-bar .field select { padding: 3px 6px; }
+#undo, #redo { padding: 3px 9px; }
+.visual-hint { margin: 0; padding: 6px 10px; font-size: 12px; color: var(--muted); border-bottom: 1px solid var(--border); }
+
+.viewport { position: relative; }
+.viewport.drop-target { outline: 2px dashed var(--accent); outline-offset: -4px; }
+.preview g.node[data-flow-id] { cursor: pointer; }
+.preview .flow-hit { fill: none; stroke: transparent; stroke-width: 14px; cursor: pointer; pointer-events: stroke; }
+.preview g.edgeLabel[data-edge] { cursor: pointer; }
+.preview g.node.flow-selected rect, .preview g.node.flow-selected polygon, .preview g.node.flow-selected circle,
+.preview g.node.flow-selected path, .preview g.node.flow-selected ellipse {
+  stroke: #f59e0b !important;
+  stroke-width: 3px !important;
+}
+.preview path.flow-selected { stroke: #f59e0b !important; stroke-width: 3px !important; }
+.preview g.node.flow-connect-source rect, .preview g.node.flow-connect-source polygon,
+.preview g.node.flow-connect-source path, .preview g.node.flow-connect-source circle {
+  stroke: #10b981 !important;
+  stroke-width: 3px !important;
+  stroke-dasharray: 5 3;
+}
+
+.connect-handle {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 0 1px var(--accent);
+  cursor: crosshair;
+  touch-action: none;
+  z-index: 2;
+}
+.drag-line { position: absolute; left: 0; top: 0; pointer-events: none; z-index: 1; }
+.drag-line line { stroke: var(--accent); stroke-width: 2; stroke-dasharray: 6 4; }
+
+.pane-view.has-inspector .viewport { margin-right: 272px; }
+.inspector {
+  position: absolute;
+  right: 8px;
+  top: 92px;
+  width: 256px;
+  max-height: calc(100% - 100px);
+  overflow: auto;
+  padding: 12px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, .12);
+  z-index: 3;
+}
+.inspector h3 { margin: 0 0 8px; font-size: 13px; padding-right: 20px; }
+.inspector h3 code { font-weight: 400; color: var(--muted); }
+.stack-label { display: flex; flex-direction: column; gap: 3px; margin-bottom: 8px; font-size: 12px; color: var(--muted); }
+.stack-label textarea, .stack-label input, .stack-label select {
+  font: inherit;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 7px;
+}
+.stack-label textarea { resize: vertical; }
+.color-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-bottom: 8px; font-size: 12px; }
+.color-row > span { width: 100%; color: var(--muted); }
+.swatch { width: 20px; height: 20px; padding: 0; border-radius: 4px; border: 1px solid var(--border); }
+.swatch.on { outline: 2px solid var(--accent); outline-offset: 1px; }
+.color-row .color-picker { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.color-row { position: relative; }
+.swatch-reset { font-size: 11px; padding: 2px 6px; }
+.swatch-reset.on { border-color: var(--accent); }
+.inspector .row { margin: 4px 0 0; }
+.inspector button.on { border-color: #10b981; color: #047857; }
+button.danger { color: #b91c1c; }
+.insp-close { position: absolute; top: 6px; right: 6px; padding: 0 7px; border: 0; font-size: 16px; }
+
+@media (max-width: 800px) {
+  .pane-view.has-inspector .viewport { margin-right: 0; }
+  .inspector { position: relative; top: auto !important; right: auto; width: auto; max-height: none; margin: 8px;
+    box-shadow: none; }
+}

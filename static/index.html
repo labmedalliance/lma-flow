@@ -67,9 +67,76 @@
           <button id="zoom-in" type="button" aria-label="Vergrößern">+</button>
         </span>
       </div>
+      <div id="visual-bar" class="visual-bar" hidden>
+        <div class="palette" id="palette" aria-label="Formen – ziehen oder anklicken">
+          <button type="button" class="pal" draggable="true" data-shape="rect" title="Rechteck">
+            <svg viewBox="0 0 28 20"><rect x="2" y="3" width="24" height="14"/></svg></button>
+          <button type="button" class="pal" draggable="true" data-shape="rounded" title="Abgerundet">
+            <svg viewBox="0 0 28 20"><rect x="2" y="3" width="24" height="14" rx="5"/></svg></button>
+          <button type="button" class="pal" draggable="true" data-shape="stadium" title="Start/Ende">
+            <svg viewBox="0 0 28 20"><rect x="2" y="3" width="24" height="14" rx="7"/></svg></button>
+          <button type="button" class="pal" draggable="true" data-shape="diamond" title="Entscheidung">
+            <svg viewBox="0 0 28 20"><path d="M14 1 26 10 14 19 2 10Z"/></svg></button>
+          <button type="button" class="pal" draggable="true" data-shape="circle" title="Kreis">
+            <svg viewBox="0 0 28 20"><circle cx="14" cy="10" r="8"/></svg></button>
+          <button type="button" class="pal" draggable="true" data-shape="cyl" title="Datenbank">
+            <svg viewBox="0 0 28 20"><path d="M6 5v10c0 3 16 3 16 0V5"/><ellipse cx="14" cy="5" rx="8" ry="2.5"/></svg></button>
+          <button type="button" class="pal" draggable="true" data-shape="doc" title="Dokument">
+            <svg viewBox="0 0 28 20"><path d="M3 3h22v12c-6-3-10 5-22 0Z"/></svg></button>
+          <button type="button" class="pal" draggable="true" data-shape="fr-rect" title="Unterprozess">
+            <svg viewBox="0 0 28 20"><rect x="2" y="3" width="24" height="14"/><path d="M6 3v14M22 3v14"/></svg></button>
+          <button type="button" class="pal" draggable="true" data-shape="lean-r" title="Eingabe">
+            <svg viewBox="0 0 28 20"><path d="M7 3h19l-5 14H2Z"/></svg></button>
+          <button type="button" class="pal" draggable="true" data-shape="delay" title="Wartezeit">
+            <svg viewBox="0 0 28 20"><path d="M2 3h16a7 7 0 0 1 0 14H2Z"/></svg></button>
+        </div>
+        <span class="spacer"></span>
+        <label class="field"><span>Richtung</span>
+          <select id="direction">
+            <option value="TD">↓ oben nach unten</option>
+            <option value="LR">→ links nach rechts</option>
+            <option value="BT">↑ unten nach oben</option>
+            <option value="RL">← rechts nach links</option>
+          </select>
+        </label>
+        <button id="undo" type="button" title="Rückgängig (Cmd/Strg+Z)" aria-label="Rückgängig">↶</button>
+        <button id="redo" type="button" title="Wiederholen (Shift+Cmd/Strg+Z)" aria-label="Wiederholen">↷</button>
+      </div>
+      <p id="visual-hint" class="visual-hint" hidden></p>
       <div id="viewport" class="viewport">
         <div id="preview" class="preview"></div>
+        <div id="handle" class="connect-handle" hidden title="Ziehen: Pfeil zu einem anderen Knoten"></div>
+        <svg id="drag-line" class="drag-line" hidden><line x1="0" y1="0" x2="0" y2="0"/></svg>
       </div>
+
+      <aside id="inspector" class="inspector" hidden>
+        <div id="insp-node" hidden>
+          <h3>Knoten <code id="insp-node-id"></code></h3>
+          <label class="stack-label">Text
+            <textarea id="insp-text" rows="2"></textarea></label>
+          <label class="stack-label">Form
+            <select id="insp-shape"></select></label>
+          <div class="color-row" data-prop="fill"><span>Füllung</span></div>
+          <div class="color-row" data-prop="stroke"><span>Rand</span></div>
+          <div class="color-row" data-prop="color"><span>Schrift</span></div>
+          <div class="row">
+            <button id="insp-connect" type="button" title="Danach den Zielknoten anklicken">Pfeil zu …</button>
+            <button id="insp-node-delete" type="button" class="danger">Löschen</button>
+          </div>
+        </div>
+        <div id="insp-edge" hidden>
+          <h3>Pfeil <code id="insp-edge-id"></code></h3>
+          <label class="stack-label">Beschriftung
+            <input id="insp-label" type="text"></label>
+          <label class="stack-label">Art
+            <select id="insp-kind"></select></label>
+          <div class="color-row" data-prop="stroke" data-edge="1"><span>Farbe</span></div>
+          <div class="row">
+            <button id="insp-edge-delete" type="button" class="danger">Löschen</button>
+          </div>
+        </div>
+        <button id="insp-close" type="button" class="insp-close" aria-label="Schließen">×</button>
+      </aside>
     </section>
   </main>
 
@@ -150,6 +217,8 @@
   <script src="vendor/mermaid/mermaid.min.js"></script>
   <script src="js/common.js"></script>
   <script src="js/examples.js"></script>
+  <script src="js/flowedit.js"></script>
   <script src="js/app.js"></script>
+  <script src="js/visual.js"></script>
 </body>
 </html>
