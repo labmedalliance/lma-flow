@@ -12,6 +12,7 @@
 
   const { api, toast, svgSize, sizeSvg, initMermaid } = window.Flow;
   const STORE_CURRENT = "flow.current";
+  const STORE_CODE_HIDDEN = "flow.codeHidden";
   const API = "api/diagrams";
   const RENDER_DELAY_MS = 300;
   const ROLE_LABEL = { owner: "Besitzer", edit: "Bearbeiten", view: "Lesen" };
@@ -88,6 +89,9 @@
       // Keep the last good diagram visible, but dimmed.
       previewEl.classList.add("stale");
       showError(String((err && err.message) || err));
+      if (document.querySelector(".workspace").classList.contains("code-hidden")) {
+        toast("Das Diagramm enthält einen Fehler – blende den Code ein, um ihn zu sehen.");
+      }
       announce(null);
     } finally {
       // mermaid leaves a temporary container behind when rendering fails
@@ -460,6 +464,20 @@
     render();
   }
 
+  /** Hides the code pane so the preview uses the full width (remembered per browser). */
+  function setCodeHidden(hidden) {
+    document.querySelector(".workspace").classList.toggle("code-hidden", hidden);
+    const btn = $("toggle-code");
+    btn.textContent = hidden ? "Code einblenden" : "Code ausblenden";
+    btn.setAttribute("aria-pressed", String(hidden));
+    try {
+      localStorage.setItem(STORE_CODE_HIDDEN, hidden ? "1" : "0");
+    } catch (e) { /* only a convenience */ }
+    zoom = null; // re-fit to the new width
+    applyZoom();
+    window.dispatchEvent(new Event("resize"));
+  }
+
   /** Mark the diagram as changed and keep the draft safe in the browser. */
   function touch() {
     doc.dirty = true;
@@ -536,6 +554,8 @@
     $("zoom-in").addEventListener("click", () => changeZoom(1.25));
     $("zoom-out").addEventListener("click", () => changeZoom(0.8));
     $("zoom-fit").addEventListener("click", () => { zoom = null; applyZoom(); });
+    $("toggle-code").addEventListener("click", () => setCodeHidden(!document.querySelector(".workspace")
+      .classList.contains("code-hidden")));
     $("public-create").addEventListener("click", createPublic);
     $("public-revoke").addEventListener("click", revokePublic);
     $("public-copy").addEventListener("click", copyPublic);
@@ -563,6 +583,11 @@
     $("admin-link").hidden = !me.is_admin;
     fillExamples();
     bindEvents();
+    let codeHidden = false;
+    try {
+      codeHidden = localStorage.getItem(STORE_CODE_HIDDEN) === "1";
+    } catch (e) { /* storage blocked */ }
+    if (codeHidden) setCodeHidden(true);
 
     // Priority: ?new=1 (blank) > ?id= (saved diagram) > last draft of this user > first template.
     let draft = readDraft();

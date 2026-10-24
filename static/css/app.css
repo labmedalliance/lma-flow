@@ -460,3 +460,13 @@ button.danger { color: #b91c1c; }
   .inspector { position: relative; top: auto !important; right: auto; width: auto; max-height: none; margin: 8px;
     box-shadow: none; }
 }
+
+/* ---------- hide code ---------- */
+
+.pane-title { display: flex; align-items: center; gap: 8px; }
+#toggle-code { padding: 2px 8px; font-size: 12px; }
+.workspace.code-hidden { grid-template-columns: 1fr; }
+.workspace.code-hidden .pane-code { display: none; }
+@media (max-width: 800px) {
+  .workspace.code-hidden { grid-template-rows: minmax(420px, 1fr); }
+}
