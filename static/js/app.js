@@ -154,7 +154,24 @@
     clone.setAttribute("width", w);
     clone.setAttribute("height", h);
     clone.removeAttribute("style");
+    stripEditorMarks(clone);
     return new XMLSerializer().serializeToString(clone);
+  }
+
+  /**
+   * Removes what visual.js adds for mouse editing. Its styles live in app.css,
+   * which the exported file does not carry: the click areas (.flow-hit) would
+   * show up as solid black shapes and a selection would stay highlighted.
+   */
+  function stripEditorMarks(svg) {
+    svg.querySelectorAll(".flow-hit").forEach((el) => el.remove());
+    svg.querySelectorAll(".flow-selected, .flow-connect-source").forEach((el) => {
+      el.classList.remove("flow-selected", "flow-connect-source");
+    });
+    svg.querySelectorAll("[data-flow-id], [data-edge]").forEach((el) => {
+      el.removeAttribute("data-flow-id");
+      el.removeAttribute("data-edge");
+    });
   }
 
   function exportSvg() {
