@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Janne Cadamuro / LabMed Alliance Inc. — see LICENSE and NOTICE
 /* Starter templates, one per diagram type. Own content, written for this app. */
 window.FLOW_EXAMPLES = [
   {

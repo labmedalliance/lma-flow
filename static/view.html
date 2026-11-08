@@ -5,13 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <base href="{{BASE}}">
   <meta name="robots" content="noindex, nofollow">
-  <title>Diagramm – Flow</title>
-  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <title>Diagramm – LMA Flow</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="img/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="img/favicon-16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="img/apple-touch-icon.png">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#ffffff">
   <link rel="stylesheet" href="css/app.css">
 </head>
 <body>
   <header class="topbar">
-    <span class="brand">Flow</span>
+    <span class="brand"><img class="brand-logo" src="img/lma-logo-mark.svg" alt="" width="24" height="24">LMA Flow</span>
     <span id="view-title" class="doc-title"></span>
     <span class="spacer"></span>
     <span class="zoom">
@@ -26,7 +30,7 @@
     </div>
     <p id="view-error" class="view-error" hidden></p>
   </main>
-  <footer class="footer">Nur lesend freigegeben.</footer>
+  <footer class="footer">Nur lesend freigegeben. · {{CREDIT}}</footer>
   <script src="vendor/mermaid/mermaid.min.js"></script>
   <script src="js/common.js"></script>
   <script src="js/view.js"></script>

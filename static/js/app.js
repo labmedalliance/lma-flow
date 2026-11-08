@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Janne Cadamuro / LabMed Alliance Inc. — see LICENSE and NOTICE
 /*
  * Flow – editor page.
  *
@@ -514,7 +516,7 @@
     let label = name;
     if (doc.id && doc.role !== "owner") label += " (" + doc.owner + ", " + ROLE_LABEL[doc.role].toLowerCase() + ")";
     titleEl.textContent = label + (doc.dirty ? " •" : "");
-    document.title = name + " – Flow";
+    document.title = name + " – LMA Flow";
     const url = location.pathname + (doc.id ? "?id=" + doc.id : "");
     if (url !== location.pathname + location.search) history.replaceState(null, "", url);
   }

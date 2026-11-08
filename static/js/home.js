@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Janne Cadamuro / LabMed Alliance Inc. — see LICENSE and NOTICE
 /* Start page: the three latest diagrams as cards with a preview, then the full list. */
 (function () {
   "use strict";

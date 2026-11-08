@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <base href="{{BASE}}">
+  <title>Über LMA Flow</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="img/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="img/favicon-16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="img/apple-touch-icon.png">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#ffffff">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body class="page">
+  <header class="topbar">
+    <a class="brand" href="./"><img class="brand-logo" src="img/lma-logo-mark.svg" alt="" width="24" height="24">LMA Flow</a>
+    <span>Über</span>
+    <span class="spacer"></span>
+    <a class="button" href="./">Zur Übersicht</a>
+    <a class="button" href="help">Hilfe</a>
+  </header>
+
+  <main class="content">
+    <!-- Required by NOTICE (AGPL section 7(b)) and the section 13 source offer - keep it reachable. -->
+    <section class="card about-page">
+      <a href="{{ORGANIZATION_URL}}" rel="noopener">
+        <img src="img/lma-logo-mark.svg" alt="{{ORGANIZATION_SHORT}}" width="64" height="64">
+      </a>
+      <h1>{{APP_NAME}} {{VERSION}}</h1>
+      <p>Ein frei verfügbarer Editor für Diagramme, als Text oder mit der Maus. Entwickelt von {{AUTHOR}} /
+        <a href="{{ORGANIZATION_URL}}" rel="noopener">{{ORGANIZATION}}</a></p>
+      <p>{{COPYRIGHT}}</p>
+
+      <h2>Lizenz</h2>
+      <p><a href="{{LICENSE_URL}}" rel="noopener">{{LICENSE_NAME}}</a> ({{LICENSE_SPDX}})</p>
+      <p>Du darfst LMA Flow nutzen, verändern und weitergeben – auch kommerziell. Veränderte Versionen musst du unter
+        derselben Lizenz veröffentlichen, auch wenn du sie nur als Webdienst betreibst. Der Hinweis
+        „Powered by LabMed Alliance" und diese Seite müssen erhalten bleiben (siehe NOTICE).</p>
+      <p class="hint">Ohne jede Gewährleistung.</p>
+
+      <h2>Quellcode</h2>
+      <p>Den Quellcode dieser Version findest du hier: <a href="{{SOURCE_URL}}" rel="noopener">{{SOURCE_URL}}</a></p>
+
+      <h2>Verwendete Software</h2>
+      <p>Flask und Werkzeug (BSD-3-Clause), gunicorn (MIT), mermaid (MIT). Details:
+        <a href="licenses">Lizenzen</a>.</p>
+    </section>
+  </main>
+
+  <footer class="footer">{{CREDIT}}</footer>
+</body>
+</html>

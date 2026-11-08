@@ -1,0 +1,59 @@
+LMA Flow
+Copyright (C) 2026 Janne Cadamuro / LabMed Alliance Inc.
+
+LMA Flow is licensed under the GNU Affero General Public License, version 3
+or (at your option) any later version (AGPL-3.0-or-later); see LICENSE.
+
+LMA Flow bundles third-party software under its own licences, in particular
+mermaid (MIT) in static/vendor/mermaid/; see THIRD_PARTY_NOTICES.md.
+
+ADDITIONAL TERMS UNDER SECTION 7 OF THE GNU AGPL v3
+
+The following additional terms apply to LMA Flow and to every covered work
+based on it, as permitted by section 7 of the GNU AGPL v3.
+
+1. Attribution (section 7(b)).
+   Every copy and every modified version of LMA Flow that presents an
+   interactive user interface must keep, as part of its Appropriate Legal
+   Notices:
+
+   a) a visible credit on every page reading "Powered by LabMed Alliance"
+      (or its translation), shown together with the LabMed Alliance logo
+      or name and linked to https://labmedalliance.com (in the original:
+      the page footer), and
+
+   b) a page reachable from every page through a visible link (in the
+      original: /about) that states the name LMA Flow, the copyright
+      notice above, the licence, and a link to the source code of the
+      version being run.
+
+   The credit must stay legible and must not be hidden, removed or made
+   substantially less prominent than in the original version. You may add
+   your own name, logo and credits next to it.
+
+2. Marking of modified versions (section 7(c)).
+   A modified version must be marked as such, for example on the page
+   described in 1(b), and must not be presented as the original version
+   or as a version endorsed by LabMed Alliance.
+
+3. Trademarks (section 7(e)).
+   This licence does not grant any rights in the names "LabMed Alliance",
+   "LMA" and "LMA Flow" or in the LabMed Alliance logo, except:
+
+   a) the right to display the name and logo unchanged in the
+      attribution required by term 1, and
+
+   b) the right to run an unmodified copy under the name "LMA Flow".
+
+   A modified version must use a different name; it may describe itself
+   as "based on LMA Flow". It must replace the logo-based icons
+   (static/img/favicon-*.png, apple-touch-icon.png, icon-*.png) and the
+   logo in the page header with its own, while keeping the logo in the
+   credit required by term 1.
+
+   The LabMed Alliance logo and the icons derived from it
+   (static/img/lma-logo-mark.svg and the icon files above) are not
+   covered by the AGPL; they are included solely for the uses above.
+
+These terms are additional terms under section 7 of the AGPL v3 and are
+not "further restrictions" within the meaning of section 7.

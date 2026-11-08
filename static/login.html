@@ -4,19 +4,25 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <base href="{{BASE}}">
-  <title>Anmelden – Flow</title>
-  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <title>Anmelden – LMA Flow</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="img/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="img/favicon-16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="img/apple-touch-icon.png">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#ffffff">
   <link rel="stylesheet" href="css/app.css">
 </head>
 <body class="center-page">
   <form id="login-form" class="card stack">
-    <h1 class="brand">Flow</h1>
+    <h1 class="brand"><img class="brand-logo" src="img/lma-logo-mark.svg" alt="" width="24" height="24">LMA Flow</h1>
     <input id="username" type="text" placeholder="Benutzername" autocomplete="username" required autofocus>
     <input id="password" type="password" placeholder="Passwort" autocomplete="current-password" required>
     <button type="submit" class="primary">Anmelden</button>
     <p id="login-error" class="form-error" hidden></p>
     <p class="hint">Keine Patientendaten oder personenbezogenen Daten Dritter eintragen.</p>
   </form>
+  <footer class="footer">{{CREDIT}}</footer>
+
   <script src="js/common.js"></script>
   <script src="js/login.js"></script>
 </body>

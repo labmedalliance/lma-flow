@@ -1,7 +1,12 @@
 # Third-party notices
 
-Flow's own code (`app.py`, `static/*.html`, `static/css/`, `static/js/`, `static/favicon.svg`) is original work. The only third-party code is the
-vendored mermaid bundle in `static/vendor/mermaid/`. Python dependencies (Flask, Werkzeug, click, gunicorn) are installed via `uv` and not part of the repository.
+LMA Flow's own code (`app.py`, `attribution.py`, `static/*.html`, `static/css/`, `static/js/`, `static/favicon.svg`,
+`tools/`, `tests/`) is original work by Janne Cadamuro / LabMed Alliance Inc., licensed under AGPL-3.0-or-later with
+the additional terms in `NOTICE`. The LabMed Alliance logo and the icons in `static/img/` are not covered by the AGPL
+(see `NOTICE`, term 3).
+
+The only third-party code is the vendored mermaid bundle in `static/vendor/mermaid/`. Python dependencies (Flask,
+Werkzeug, click, gunicorn) are installed via `uv` and not part of the repository.
 
 ## mermaid 12.1.0
 
@@ -10,7 +15,7 @@ vendored mermaid bundle in `static/vendor/mermaid/`. Python dependencies (Flask,
 - License: MIT, Copyright (c) 2014 - 2022 Knut Sveidqvist – full text in `static/vendor/mermaid/LICENSE`
 - Source: https://github.com/mermaid-js/mermaid
 
-"Mermaid" is the name of the upstream open-source project. Flow is an independent app and is not affiliated with or
+"Mermaid" is the name of the upstream open-source project. LMA Flow is an independent app and is not affiliated with or
 endorsed by the mermaid project or Mermaid Chart.
 
 ## Libraries bundled inside mermaid.min.js

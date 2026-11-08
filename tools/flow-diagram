@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 Janne Cadamuro / LabMed Alliance Inc. — see LICENSE and NOTICE
 """flow-diagram – create and update Flow diagrams from the command line.
 
 Reads URL and login from ~/.config/flow/credentials (must be mode 600):

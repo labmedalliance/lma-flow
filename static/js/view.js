@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Janne Cadamuro / LabMed Alliance Inc. — see LICENSE and NOTICE
 /* Public read-only view: v/<token>, works without login. */
 (function () {
   "use strict";
@@ -39,7 +41,7 @@
       return fail("Diagramm konnte nicht geladen werden.");
     }
     $("view-title").textContent = d.name;
-    document.title = d.name + " – Flow";
+    document.title = d.name + " – LMA Flow";
     try {
       initMermaid(d.theme, d.look);
       const out = await mermaid.render("flow-view", d.code);
