@@ -17,7 +17,7 @@ Configuration (environment variables or ``.env`` next to this file):
 ``FLOW_DB``          SQLite file, default ``instance/flow.db``
 ``FLOW_BASE_PATH``   URL prefix the app is served under, default ``/``
 ``FLOW_DEV=1``       local development: allows the session cookie over plain HTTP
-``FLOW_PROXY_HOPS``  number of trusted reverse proxies in front (Uberspace: 1), for the client IP
+``FLOW_PROXY_HOPS``  number of trusted reverse proxies in front (Uberspace 8: 2), for the client IP
 
 Create the first admin with ``flask --app app create-user <name> --admin``.
 """
