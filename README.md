@@ -73,12 +73,13 @@ uv run pytest
 node --test tests/js/flowedit.test.js   # text-edit module
 ```
 
-## Deploy (umbriel, example.com/flow/)
+## Deploy (umbriel, example.com)
 
 - Code: `~/lma-flow` (git clone of `labmedalliance/lma-flow`)
-- Config: `~/lma-flow/.env` (mode 600) with `FLOW_SECRET_KEY`, `FLOW_BASE_PATH=/flow/`, `FLOW_PROXY_HOPS=1`
+- Config: `~/lma-flow/.env` (mode 600) with `FLOW_SECRET_KEY`, `FLOW_BASE_PATH=/`, `FLOW_PROXY_HOPS=1`
 - Service: `~/.config/systemd/user/lma-flow.service` (gunicorn on port 5190)
-- Web backend: `uberspace web backend add example.com/flow PORT 5190 --remove-prefix`
+- Web backend: `uberspace web backend add example.com PORT 5190` (until 2026-11-08: `example.com/flow` with
+  `--remove-prefix`; the craft site now redirects `/flow/…` to `https://example.com/…`)
 
 Update (backup first, fast-forward only, locked dependencies, health check):
 
@@ -87,14 +88,14 @@ ssh example.uberspace.de 'set -e; cd ~/lma-flow \
   && sqlite3 instance/flow.db ".backup $HOME/backups/lma-flow/pre-deploy-$(date +%Y%m%d-%H%M%S).db" \
   && git pull --ff-only && uv sync --no-dev --locked \
   && systemctl --user restart lma-flow && sleep 2 && systemctl --user is-active lma-flow \
-  && curl -s -o /dev/null -w "%{http_code}\n" https://example.com/flow/login'
+  && curl -s -o /dev/null -w "%{http_code}\n" https://example.com/login'
 ```
 
 If `deploy/lma-flow.service` changed: copy it to `~/.config/systemd/user/` and run `systemctl --user daemon-reload`
 first. The schema is created with `CREATE TABLE IF NOT EXISTS` – new columns need a manual migration.
 
-Back up `~/lma-flow/instance/flow.db`. The craft site's Apache Basic Auth does not apply under `/flow/` – Flow has
-its own login, so public links work.
+Back up `~/lma-flow/instance/flow.db`. Flow has its own login and its own origin, separate from the password-protected
+craft site; old public links under `example.com/flow/` redirect without the craft password.
 
 ## Command-line client
 
