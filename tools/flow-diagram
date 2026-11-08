@@ -5,7 +5,7 @@
 
 Reads URL and login from ~/.config/flow/credentials (must be mode 600):
 
-    FLOW_URL=https://craft.cadamu.ro/flow/
+    FLOW_URL=https://flow.cadamu.ro/
     FLOW_USER=claude
     FLOW_PASSWORD=...
     FLOW_SHARE_WITH=janne:edit     # optional: share every new diagram (user:view|edit, comma-separated)
