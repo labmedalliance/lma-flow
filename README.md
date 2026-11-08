@@ -58,7 +58,7 @@ Environment variables, or a `.env` file next to `app.py` (git-ignored):
 | `FLOW_DB` | SQLite file. Default `instance/flow.db` (git-ignored) |
 | `FLOW_BASE_PATH` | URL prefix, e.g. `/flow/`. Default `/` |
 | `FLOW_DEV=1` | Local development: session cookie also over plain HTTP |
-| `FLOW_PROXY_HOPS` | Trusted reverse proxies in front, for the client IP of the login limit. Uberspace: `1` |
+| `FLOW_PROXY_HOPS` | Trusted reverse proxies in front, for the client IP of the login limit. Uberspace 8: `2` (its proxy adds an internal hop) |
 
 Create the first admin: `uv run flask --app app create-user <name> --admin` (prompts for the password).
 
@@ -76,7 +76,7 @@ node --test tests/js/flowedit.test.js   # text-edit module
 ## Deploy (umbriel, flow.cadamu.ro)
 
 - Code: `~/lma-flow` (git clone of `labmedalliance/lma-flow`)
-- Config: `~/lma-flow/.env` (mode 600) with `FLOW_SECRET_KEY`, `FLOW_BASE_PATH=/`, `FLOW_PROXY_HOPS=1`
+- Config: `~/lma-flow/.env` (mode 600) with `FLOW_SECRET_KEY`, `FLOW_BASE_PATH=/`, `FLOW_PROXY_HOPS=2`
 - Service: `~/.config/systemd/user/lma-flow.service` (gunicorn on port 5190)
 - Web backend: `uberspace web backend add flow.cadamu.ro PORT 5190` (until 2026-11-08: `craft.cadamu.ro/flow` with
   `--remove-prefix`; the craft site now redirects `/flow/…` to `https://flow.cadamu.ro/…`)
