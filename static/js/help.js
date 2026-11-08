@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Janne Cadamuro / LabMed Alliance Inc. — see LICENSE and NOTICE
 /*
  * Help page: renders every example next to its code and adds
  * "Kopieren" and "Ausprobieren" (opens the example in the editor).

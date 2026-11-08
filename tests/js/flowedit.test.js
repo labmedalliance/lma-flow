@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Janne Cadamuro / LabMed Alliance Inc. — see LICENSE and NOTICE
 // Tests for static/js/flowedit.js – run with: node --test tests/js/
 const test = require("node:test");
 const assert = require("node:assert/strict");

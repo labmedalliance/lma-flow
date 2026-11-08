@@ -4,13 +4,17 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <base href="{{BASE}}">
-  <title>Benutzer – Flow</title>
-  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <title>Benutzer – LMA Flow</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="img/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="img/favicon-16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="img/apple-touch-icon.png">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#ffffff">
   <link rel="stylesheet" href="css/app.css">
 </head>
 <body class="page">
   <header class="topbar">
-    <span class="brand">Flow</span>
+    <span class="brand"><img class="brand-logo" src="img/lma-logo-mark.svg" alt="" width="24" height="24">LMA Flow</span>
     <span>Benutzer verwalten</span>
     <span class="spacer"></span>
     <a href="./">Zur Übersicht</a>
@@ -38,6 +42,8 @@
   </main>
 
   <div id="toast" class="toast" role="status" hidden></div>
+  <footer class="footer">{{CREDIT}}</footer>
+
   <script src="js/common.js"></script>
   <script src="js/admin.js"></script>
 </body>

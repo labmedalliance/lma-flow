@@ -1,7 +1,9 @@
 [project]
 name = "lma-flow"
-version = "0.3.0"
-description = "Self-hosted diagram editor with SQLite storage"
+version = "1.0.0"
+description = "LMA Flow – self-hosted diagram editor, by text or drag and drop"
+license = "AGPL-3.0-or-later"
+authors = [{ name = "Janne Cadamuro / LabMed Alliance Inc." }]
 requires-python = ">=3.11"
 dependencies = [
     "flask>=3.1.3",

@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later
+   Copyright (C) 2026 Janne Cadamuro / LabMed Alliance Inc. — see LICENSE and NOTICE */
 :root {
   --bg: #f6f7f9;
   --panel: #ffffff;
@@ -61,7 +63,20 @@ button:hover { border-color: var(--accent); }
   border-bottom: 1px solid var(--border);
 }
 
-.brand { font-weight: 700; font-size: 16px; margin-right: 8px; color: var(--accent); }
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  font-size: 16px;
+  margin-right: 8px;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.brand-logo { width: 24px; height: 24px; flex: none; }
+
+h1.brand { justify-content: center; width: 100%; }
 
 .field { display: flex; align-items: center; gap: 4px; color: var(--muted); }
 
@@ -149,6 +164,23 @@ button:hover { border-color: var(--accent); }
 }
 
 .footer a { color: var(--muted); }
+
+/* Mandatory LabMed Alliance credit (see NOTICE) — keep it visible. */
+.app-credit { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+
+.lma-credit { display: inline-flex; align-items: center; gap: 5px; text-decoration: none; }
+
+.lma-credit:hover span { text-decoration: underline; }
+
+.lma-logo { width: 16px; height: 16px; }
+
+.about-page { max-width: 640px; }
+
+.about-page h1 { margin: 0 0 8px; font-size: 24px; }
+
+.about-page h2 { margin: 20px 0 6px; font-size: 16px; }
+
+.about-page p { margin: 0 0 8px; }
 
 dialog {
   width: min(480px, calc(100vw - 32px));

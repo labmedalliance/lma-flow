@@ -1,4 +1,6 @@
-"""Flow – self-hosted diagram editor with accounts, sharing and SQLite storage.
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 Janne Cadamuro / LabMed Alliance Inc. — see LICENSE and NOTICE
+"""LMA Flow – self-hosted diagram editor with accounts, sharing and SQLite storage.
 
 Serves the static pages from ``static/`` and a JSON API.
 
@@ -35,9 +37,11 @@ from flask import Flask, abort, g, jsonify, redirect, request, send_from_directo
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import check_password_hash, generate_password_hash
 
+import attribution
+
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
-HTML_PAGES = {"home.html", "index.html", "login.html", "admin.html", "view.html", "help.html"}
+HTML_PAGES = {"home.html", "index.html", "login.html", "admin.html", "view.html", "help.html", "about.html"}
 
 MAX_CODE_CHARS = 50_000  # mermaid's default maxTextSize – longer code would not render anyway
 MAX_NAME_CHARS = 200
@@ -249,8 +253,10 @@ def create_app(config=None):
         return data
 
     def page(name):
-        """Serve an HTML page with the right <base href> for the URL prefix."""
+        """Serve an HTML page with the right <base href>, the LMA credit and the app details filled in."""
         html = (STATIC_DIR / name).read_text(encoding="utf-8").replace("{{BASE}}", base)
+        for key, value in attribution.placeholders().items():
+            html = html.replace(key, value)
         return html, 200, {"Content-Type": "text/html; charset=utf-8"}
 
     def validate_password(pw):
@@ -347,6 +353,11 @@ def create_app(config=None):
     @app.get("/v/<token>")
     def public_page(token):
         return page("view.html")
+
+    @app.get("/about")
+    def about_page():
+        """Name, authors, licence and source offer (NOTICE term 1(b), AGPL section 13) - no login needed."""
+        return page("about.html")
 
     @app.get("/licenses")
     def licenses():
