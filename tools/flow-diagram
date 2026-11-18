@@ -5,10 +5,10 @@
 
 Reads URL and login from ~/.config/flow/credentials (must be mode 600):
 
-    FLOW_URL=https://example.com/
+    FLOW_URL=https://flow.example.com/
     FLOW_USER=claude
     FLOW_PASSWORD=...
-    FLOW_SHARE_WITH=janne:edit     # optional: share every new diagram (user:view|edit, comma-separated)
+    FLOW_SHARE_WITH=<user>:edit    # optional: share every new diagram (user:view|edit, comma-separated)
 
 The password never appears on the command line or in the output. Values are stripped of
 surrounding whitespace; quotes are not removed.

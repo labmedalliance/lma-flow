@@ -68,34 +68,35 @@ Create the first admin: `uv run flask --app app create-user <name> --admin` (pro
 uv sync
 export FLOW_SECRET_KEY=dev FLOW_DEV=1
 uv run flask --app app create-user me --admin
-uv run python app.py                     # http://127.0.0.1:5190/
+uv run python app.py                     # http://127.0.0.1:8000/ (override with FLOW_PORT)
 uv run pytest
 node --test tests/js/flowedit.test.js   # text-edit module
 ```
 
-## Deploy (umbriel, example.com)
+## Deploy (Uberspace, e.g. flow.example.com)
 
 - Code: `~/lma-flow` (git clone of `labmedalliance/lma-flow`)
-- Config: `~/lma-flow/.env` (mode 600) with `FLOW_SECRET_KEY`, `FLOW_BASE_PATH=/`, `FLOW_PROXY_HOPS=2`
-- Service: `~/.config/systemd/user/lma-flow.service` (gunicorn on port 5190)
-- Web backend: `uberspace web backend add example.com PORT 5190` (until 2026-11-08: `example.com/flow` with
-  `--remove-prefix`; the craft site now redirects `/flow/…` to `https://example.com/…`)
+- Config: `~/lma-flow/.env` (mode 600) with `FLOW_SECRET_KEY`, `FLOW_BASE_PATH=/`, `FLOW_PROXY_HOPS=2`, `FLOW_PORT`
+  (see `.env.example`)
+- Service: `~/.config/systemd/user/lma-flow.service` (gunicorn on `FLOW_PORT` from `.env`)
+- Web backend: `uberspace web backend add flow.example.com PORT <FLOW_PORT>` (for a sub-path instead, use
+  `--remove-prefix` and set `FLOW_BASE_PATH`)
 
 Update (backup first, fast-forward only, locked dependencies, health check):
 
 ```sh
-ssh example.uberspace.de 'set -e; cd ~/lma-flow \
+ssh <user>@example.uberspace.de 'set -e; cd ~/lma-flow \
   && sqlite3 instance/flow.db ".backup $HOME/backups/lma-flow/pre-deploy-$(date +%Y%m%d-%H%M%S).db" \
   && git pull --ff-only && uv sync --no-dev --locked \
   && systemctl --user restart lma-flow && sleep 2 && systemctl --user is-active lma-flow \
-  && curl -s -o /dev/null -w "%{http_code}\n" https://example.com/login'
+  && curl -s -o /dev/null -w "%{http_code}\n" https://flow.example.com/login'
 ```
 
 If `deploy/lma-flow.service` changed: copy it to `~/.config/systemd/user/` and run `systemctl --user daemon-reload`
 first. The schema is created with `CREATE TABLE IF NOT EXISTS` – new columns need a manual migration.
 
-Back up `~/lma-flow/instance/flow.db`. Flow has its own login and its own origin, separate from the password-protected
-craft site; old public links under `example.com/flow/` redirect without the craft password.
+Back up `~/lma-flow/instance/flow.db`. Flow has its own login and its own origin, separate from other sites on the
+same host.
 
 ## Command-line client
 

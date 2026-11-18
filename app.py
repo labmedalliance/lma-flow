@@ -18,6 +18,7 @@ Configuration (environment variables or ``.env`` next to this file):
 ``FLOW_BASE_PATH``   URL prefix the app is served under, default ``/``
 ``FLOW_DEV=1``       local development: allows the session cookie over plain HTTP
 ``FLOW_PROXY_HOPS``  number of trusted reverse proxies in front (Uberspace 8: 2), for the client IP
+``FLOW_PORT``        port for ``python app.py`` (default 8000) and for the gunicorn unit in ``deploy/``
 
 Create the first admin with ``flask --app app create-user <name> --admin``.
 """
@@ -664,4 +665,4 @@ def create_app(config=None):
 
 if __name__ == "__main__":
     os.environ.setdefault("FLOW_DEV", "1")
-    create_app().run(host="127.0.0.1", port=int(os.environ.get("FLOW_PORT", "5190")))
+    create_app().run(host="127.0.0.1", port=int(os.environ.get("FLOW_PORT", "8000")))

@@ -1,12 +1,14 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Copyright (C) 2026 Janne Cadamuro / LabMed Alliance Inc. — see LICENSE and NOTICE
+# Template: copy to ~/.config/systemd/user/ on the server. FLOW_PORT (and the other
+# FLOW_* settings) come from ~/lma-flow/.env, see .env.example.
 [Unit]
 Description=Flow diagram editor (Flask + gunicorn)
 After=default.target
 
 [Service]
 WorkingDirectory=%h/lma-flow
-ExecStart=%h/lma-flow/.venv/bin/gunicorn "app:create_app()" --bind 0.0.0.0:5190 --workers 2 --timeout 60 --error-logfile -
+ExecStart=%h/lma-flow/.venv/bin/gunicorn "app:create_app()" --bind 0.0.0.0:${FLOW_PORT} --workers 2 --timeout 60 --error-logfile -
 Restart=on-failure
 RestartSec=5
 EnvironmentFile=%h/lma-flow/.env
